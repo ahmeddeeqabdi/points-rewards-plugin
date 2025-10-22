@@ -7,6 +7,11 @@ class PR_Admin_Settings {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('wp_ajax_save_pr_settings', array($this, 'save_settings'));
+        add_action('update_option_pr_conversion_rate', array($this, 'recalculate_points_on_conversion_rate_change'), 10, 2);
+        add_action('update_option_pr_registration_points', array($this, 'cleanup_on_settings_change'), 10, 2);
+        add_action('update_option_pr_enable_purchase', array($this, 'cleanup_on_settings_change'), 10, 2);
+        add_action('update_option_pr_restrict_categories', array($this, 'cleanup_on_settings_change'), 10, 2);
+        add_action('update_option_pr_allowed_categories', array($this, 'cleanup_on_settings_change'), 10, 2);
     }
 
     public function add_admin_menu() {
@@ -40,11 +45,31 @@ class PR_Admin_Settings {
     }
 
     public function register_settings() {
-        register_setting('pr_settings', 'pr_conversion_rate');
-        register_setting('pr_settings', 'pr_registration_points');
-        register_setting('pr_settings', 'pr_enable_purchase');
-        register_setting('pr_settings', 'pr_restrict_categories');
-        register_setting('pr_settings', 'pr_allowed_categories');
+        register_setting('pr_settings', 'pr_conversion_rate', array(
+            'type' => 'number',
+            'sanitize_callback' => 'floatval',
+            'default' => 1
+        ));
+        register_setting('pr_settings', 'pr_registration_points', array(
+            'type' => 'number',
+            'sanitize_callback' => 'intval',
+            'default' => 0
+        ));
+        register_setting('pr_settings', 'pr_enable_purchase', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field',
+            'default' => 'no'
+        ));
+        register_setting('pr_settings', 'pr_restrict_categories', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field',
+            'default' => 'no'
+        ));
+        register_setting('pr_settings', 'pr_allowed_categories', array(
+            'type' => 'array',
+            'sanitize_callback' => array($this, 'sanitize_allowed_categories'),
+            'default' => array()
+        ));
     }
 
     public function enqueue_assets($hook) {
@@ -80,7 +105,6 @@ class PR_Admin_Settings {
             <form method="post" action="options.php">
                 <?php 
                 settings_fields('pr_settings');
-                wp_nonce_field('pr_settings_nonce', 'pr_settings_nonce'); 
                 ?>
                 
                 <div class="pr-card">
@@ -199,8 +223,6 @@ class PR_Admin_Settings {
                             </td>
                         </tr>
                     </table>
-                </div>
-
                 <?php submit_button(); ?>
             </form>
         </div>
@@ -252,5 +274,152 @@ class PR_Admin_Settings {
             </div>
         </div>
         <?php
+    }
+
+    public function recalculate_points_on_conversion_rate_change($old_value, $new_value) {
+        // Only recalculate if the conversion rate actually changed
+        if ((float) $old_value === (float) $new_value) {
+            return;
+        }
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'user_points';
+
+        $new_conversion_rate = (float) $new_value;
+        if ($new_conversion_rate <= 0) {
+            $new_conversion_rate = 1;
+        }
+
+        // Get all completed orders with _points_awarded flag
+        if (function_exists('wc_get_orders')) {
+            $orders = wc_get_orders(array(
+                'status' => array('wc-completed'),
+                'limit' => -1,
+                'return' => 'ids',
+            ));
+
+            // Reset all user points to 0 first (they'll be recalculated from orders)
+            $wpdb->query("UPDATE $table_name SET points = 0");
+
+            // Recalculate points for each order based on new conversion rate
+            foreach ($orders as $order_id) {
+                $order = wc_get_order($order_id);
+                if (!$order) {
+                    continue;
+                }
+
+                $user_id = $order->get_user_id();
+                $order_total = (float) $order->get_total();
+
+                if (!$user_id || $order_total <= 0) {
+                    continue;
+                }
+
+                $points = (int) floor($order_total / $new_conversion_rate);
+                if ($points > 0) {
+                    // Add points to user
+                    $existing = $wpdb->get_row(
+                        $wpdb->prepare("SELECT * FROM $table_name WHERE user_id = %d", $user_id)
+                    );
+
+                    if ($existing) {
+                        $wpdb->update(
+                            $table_name,
+                            array('points' => $existing->points + $points),
+                            array('user_id' => $user_id)
+                        );
+                    } else {
+                        $wpdb->insert(
+                            $table_name,
+                            array(
+                                'user_id' => $user_id,
+                                'points' => $points,
+                                'redeemed_points' => 0,
+                            )
+                        );
+                    }
+                }
+            }
+        }
+
+        // Always run cleanup after recalculation
+        $this->cleanup_duplicate_users();
+    }
+
+    public function cleanup_on_settings_change($old_value, $new_value) {
+        // Only run cleanup if the value actually changed
+        if ($old_value !== $new_value) {
+            $this->cleanup_duplicate_users();
+        }
+    }
+
+    public function cleanup_duplicate_users() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'user_points';
+
+        // Find all user_ids that have duplicates
+        $duplicates = $wpdb->get_results("
+            SELECT user_id, COUNT(*) as count 
+            FROM $table_name 
+            GROUP BY user_id 
+            HAVING count > 1
+        ");
+
+        if (empty($duplicates)) {
+            return; // No duplicates to clean up
+        }
+
+        // For each user with duplicates, merge all their rows
+        foreach ($duplicates as $dup) {
+            $user_id = $dup->user_id;
+
+            // Get all rows for this user
+            $user_rows = $wpdb->get_results(
+                $wpdb->prepare("SELECT * FROM $table_name WHERE user_id = %d ORDER BY id ASC", $user_id)
+            );
+
+            if (count($user_rows) > 1) {
+                // Sum up all points and redeemed_points
+                $total_points = 0;
+                $total_redeemed = 0;
+                $first_row_id = $user_rows[0]->id;
+
+                foreach ($user_rows as $row) {
+                    $total_points += (int) $row->points;
+                    $total_redeemed += (int) $row->redeemed_points;
+                }
+
+                // Update the first row with totals
+                $wpdb->update(
+                    $table_name,
+                    array(
+                        'points' => $total_points,
+                        'redeemed_points' => $total_redeemed,
+                    ),
+                    array('id' => $first_row_id)
+                );
+
+                // Delete all duplicate rows (keep only the first one)
+                $wpdb->query(
+                    $wpdb->prepare(
+                        "DELETE FROM $table_name WHERE user_id = %d AND id > %d",
+                        $user_id,
+                        $first_row_id
+                    )
+                );
+            }
+        }
+    }
+
+    public function sanitize_allowed_categories($value) {
+        if (is_array($value)) {
+            return array_map('intval', $value);
+        }
+        if (is_string($value)) {
+            // handle comma-separated input just in case
+            $parts = array_filter(array_map('trim', explode(',', $value)));
+            return array_map('intval', $parts);
+        }
+        return array();
     }
 }

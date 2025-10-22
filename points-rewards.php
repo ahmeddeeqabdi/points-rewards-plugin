@@ -54,15 +54,72 @@ class Points_Rewards_Plugin {
         $sql = "CREATE TABLE IF NOT EXISTS $table_name (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             user_id bigint(20) NOT NULL,
-            points int(11) DEFAULT 0,
-            redeemed_points int(11) DEFAULT 0,
+            points int(11) NOT NULL DEFAULT 0,
+            redeemed_points int(11) NOT NULL DEFAULT 0,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
-            KEY user_id (user_id)
+            UNIQUE KEY user_id (user_id)
         ) $charset_collate;";
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
+
+        // Seed a points row for each existing user if missing
+        $user_ids = get_users(array('fields' => 'ID'));
+        foreach ($user_ids as $user_id) {
+            $wpdb->query(
+                $wpdb->prepare(
+                    "INSERT INTO $table_name (user_id, points, redeemed_points) VALUES (%d, 0, 0)
+                    ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)",
+                    $user_id
+                )
+            );
+        }
+
+        // Backfill points for historical completed orders
+        if (function_exists('wc_get_orders')) {
+            $conversion_rate = (float) get_option('pr_conversion_rate', 1);
+            if ($conversion_rate <= 0) {
+                $conversion_rate = 1;
+            }
+
+            $orders = wc_get_orders(array(
+                'status' => array('wc-completed'),
+                'limit' => -1,
+                'return' => 'ids',
+            ));
+
+            foreach ($orders as $order_id) {
+                $order = wc_get_order($order_id);
+                if (!$order || $order->get_meta('_points_awarded') === 'yes') {
+                    continue;
+                }
+
+                $user_id = $order->get_user_id();
+                $order_total = (float) $order->get_total();
+
+                if (!$user_id || $order_total <= 0) {
+                    $order->update_meta_data('_points_awarded', 'yes');
+                    $order->save();
+                    continue;
+                }
+
+                $points = (int) floor($order_total / $conversion_rate);
+                if ($points > 0) {
+                    $wpdb->query(
+                        $wpdb->prepare(
+                            "INSERT INTO $table_name (user_id, points, redeemed_points) VALUES (%d, %d, 0)
+                            ON DUPLICATE KEY UPDATE points = points + VALUES(points)",
+                            $user_id,
+                            $points
+                        )
+                    );
+                }
+
+                $order->update_meta_data('_points_awarded', 'yes');
+                $order->save();
+            }
+        }
     }
 
     public function wc_missing_notice() {
