@@ -43,6 +43,33 @@ class Points_Rewards_Plugin {
         new PR_Admin_Settings();
         new PR_Points_Manager();
         new PR_Product_Purchase();
+
+        // Schedule daily maintenance
+        add_action('wp', array($this, 'schedule_maintenance'));
+    }
+
+    public function schedule_maintenance() {
+        if (!wp_next_scheduled('pr_daily_maintenance')) {
+            wp_schedule_event(time(), 'daily', 'pr_daily_maintenance');
+        }
+        add_action('pr_daily_maintenance', array($this, 'run_daily_maintenance'));
+    }
+
+    public function run_daily_maintenance() {
+        // Prevent running too frequently - check if it ran in the last hour
+        $last_run = get_option('pr_daily_maintenance_last_run', 0);
+        if (time() - $last_run < 3600) {
+            return; // Already ran in the last hour
+        }
+
+        $admin_settings = new PR_Admin_Settings();
+        // Only run repair automatically (not award, which runs on activation)
+        $admin_settings->repair_database();
+        // Backfill any missing order points
+        $admin_settings->backfill_points_for_orders();
+        
+        // Update last run time
+        update_option('pr_daily_maintenance_last_run', time());
     }
 
     public function activate() {
@@ -64,72 +91,29 @@ class Points_Rewards_Plugin {
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
 
-        // Seed a points row for each existing user if missing
-        $user_ids = get_users(array('fields' => 'ID'));
-        foreach ($user_ids as $user_id) {
-            $wpdb->query(
-                $wpdb->prepare(
-                    "INSERT IGNORE INTO $table_name (user_id, points, redeemed_points) VALUES (%d, 0, 0)",
-                    $user_id
-                )
-            );
+        // Only run activation setup once
+        if (get_option('pr_activated') === 'yes') {
+            return; // Already activated
         }
 
+        // Create admin settings instance to use repair functions
+        $admin_settings = new PR_Admin_Settings();
+        
+        // Run full database repair on activation
+        $admin_settings->repair_database();
+        
         // Backfill points for historical completed orders
-        if (function_exists('wc_get_orders')) {
-            $conversion_rate = (float) get_option('pr_conversion_rate', 1);
-            if ($conversion_rate <= 0) {
-                $conversion_rate = 1;
-            }
-
-            $orders = wc_get_orders(array(
-                'status' => array('wc-completed'),
-                'limit' => -1,
-                'return' => 'ids',
-            ));
-
-            foreach ($orders as $order_id) {
-                $order = wc_get_order($order_id);
-                if (!$order || $order->get_meta('_points_awarded') === 'yes') {
-                    continue;
-                }
-
-                $user_id = $order->get_user_id();
-                $order_total = (float) $order->get_total();
-
-                if (!$user_id || $order_total <= 0) {
-                    $order->update_meta_data('_points_awarded', 'yes');
-                    $order->save();
-                    continue;
-                }
-
-                $points = (int) floor($order_total / $conversion_rate);
-                if ($points > 0) {
-                    // First ensure user has a row
-                    $wpdb->query(
-                        $wpdb->prepare(
-                            "INSERT IGNORE INTO $table_name (user_id, points, redeemed_points) VALUES (%d, 0, 0)",
-                            $user_id
-                        )
-                    );
-
-                    // Then update points
-                    $result = $wpdb->query(
-                        $wpdb->prepare(
-                            "UPDATE $table_name SET points = points + %d WHERE user_id = %d",
-                            $points,
-                            $user_id
-                        )
-                    );
-
-                    if ($result === false) {
-                        error_log("Points & Rewards: Failed to backfill points for order $order_id, user $user_id: " . $wpdb->last_error);
-                    }
-                }
-
-                $order->update_meta_data('_points_awarded', 'yes');
-                $order->save();
-            }
+        $admin_settings->backfill_points_for_orders();
+        
+        // Award registration bonus to all existing users
+        $admin_settings->award_registration_points_to_existing_users();
+        
+        // Mark as activated
+        update_option('pr_activated', 'yes');
+        
+        // Schedule daily maintenance
+        if (!wp_next_scheduled('pr_daily_maintenance')) {
+            wp_schedule_event(time(), 'daily', 'pr_daily_maintenance');
         }
     }
 

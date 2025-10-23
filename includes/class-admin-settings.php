@@ -101,38 +101,6 @@ class PR_Admin_Settings {
         <div class="wrap pr-settings-wrap">
             <h1>Ahmed's Pointsystem Settings</h1>
             
-            <?php if (isset($_GET['awarded'])) : ?>
-                <?php $count = intval($_GET['awarded']); ?>
-                <?php if ($count > 0) : ?>
-                    <div class="notice notice-success is-dismissible">
-                        <p><?php printf('Successfully awarded registration points to %d user(s)!', $count); ?></p>
-                    </div>
-                <?php else : ?>
-                    <div class="notice notice-info is-dismissible">
-                        <p>All existing users have already received their registration points. No new points were awarded.</p>
-                    </div>
-                <?php endif; ?>
-            <?php endif; ?>
-
-            <?php if (isset($_GET['backfilled'])) : ?>
-                <?php $count = intval($_GET['backfilled']); ?>
-                <?php if ($count > 0) : ?>
-                    <div class="notice notice-success is-dismissible">
-                        <p><?php printf('Successfully awarded points for %d order(s)!', $count); ?></p>
-                    </div>
-                <?php else : ?>
-                    <div class="notice notice-info is-dismissible">
-                        <p>All completed orders have already had points awarded. No new points were backfilled.</p>
-                    </div>
-                <?php endif; ?>
-            <?php endif; ?>
-
-            <?php if (isset($_GET['cleaned'])) : ?>
-                <div class="notice notice-success is-dismissible">
-                    <p>Duplicate user entries have been successfully cleaned up!</p>
-                </div>
-            <?php endif; ?>
-            
             <form method="post" action="options.php">
                 <?php 
                 settings_fields('pr_settings');
@@ -272,48 +240,6 @@ class PR_Admin_Settings {
                             </td>
                         </tr>
                     </table>
-                                </div>
-
-                <div class="pr-card">
-                    <h2>Database Maintenance</h2>
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row">
-                                <label>Backfill Points for Existing Orders</label>
-                            </th>
-                            <td>
-                                <form method="post" action="" style="display:inline;">
-                                    <?php wp_nonce_field('pr_backfill_nonce'); ?>
-                                    <input type="hidden" name="pr_backfill_orders" value="1" />
-                                    <button type="submit" class="button button-secondary" 
-                                            onclick="return confirm('This will recalculate and award points for all existing completed orders that are missing points. Continue?');">
-                                        Backfill Points for Orders
-                                    </button>
-                                </form>
-                                <p class="description">
-                                    Award points to users for orders placed before the plugin was activated or where points were not awarded
-                                </p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">
-                                <label>Clean Up Duplicate Users</label>
-                            </th>
-                            <td>
-                                <form method="post" action="" style="display:inline;">
-                                    <?php wp_nonce_field('pr_cleanup_nonce'); ?>
-                                    <input type="hidden" name="pr_cleanup_duplicates" value="1" />
-                                    <button type="submit" class="button button-secondary" 
-                                            onclick="return confirm('This will merge duplicate user entries and remove duplicates. Continue?');">
-                                        Clean Up Duplicates
-                                    </button>
-                                </form>
-                                <p class="description">
-                                    Merge duplicate user entries in the points table (safe operation)
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
                 </div>
 
                 <?php submit_button(); ?>
@@ -399,30 +325,54 @@ class PR_Admin_Settings {
         <?php
     }
 
-    public function handle_admin_actions() {
-        if (isset($_POST['pr_award_existing_points']) && check_admin_referer('pr_award_existing_nonce')) {
-            if (current_user_can('manage_options')) {
-                $count = $this->award_registration_points_to_existing_users();
-                wp_redirect(admin_url('admin.php?page=ahmeds-pointsystem&awarded=' . intval($count)));
-                exit;
+    public function repair_database() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'user_points';
+
+        // Step 1: Remove all duplicate entries, keeping only the first one per user
+        $this->cleanup_duplicate_users();
+
+        // Step 2: Create records for all users who don't have one
+        $all_users = get_users(array('fields' => 'ID'));
+        $created = 0;
+
+        foreach ($all_users as $user_id) {
+            $exists = $wpdb->get_var(
+                $wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE user_id = %d", $user_id)
+            );
+
+            if ($exists == 0) {
+                $result = $wpdb->insert(
+                    $table_name,
+                    array(
+                        'user_id' => $user_id,
+                        'points' => 0,
+                        'redeemed_points' => 0
+                    ),
+                    array('%d', '%d', '%d')
+                );
+
+                if ($result !== false) {
+                    $created++;
+                }
             }
         }
 
-        if (isset($_POST['pr_backfill_orders']) && check_admin_referer('pr_backfill_nonce')) {
-            if (current_user_can('manage_options')) {
-                $count = $this->backfill_points_for_orders();
-                wp_redirect(admin_url('admin.php?page=ahmeds-pointsystem&backfilled=' . intval($count)));
-                exit;
-            }
-        }
+        // Step 3: Check for negative or invalid points
+        $result = $wpdb->query(
+            "UPDATE $table_name SET points = 0 WHERE points < 0"
+        );
 
-        if (isset($_POST['pr_cleanup_duplicates']) && check_admin_referer('pr_cleanup_nonce')) {
-            if (current_user_can('manage_options')) {
-                $this->cleanup_duplicate_users();
-                wp_redirect(admin_url('admin.php?page=ahmeds-pointsystem&cleaned=1'));
-                exit;
-            }
-        }
+        $result2 = $wpdb->query(
+            "UPDATE $table_name SET redeemed_points = 0 WHERE redeemed_points < 0"
+        );
+
+        // Step 4: Verify all entries are clean
+        $result3 = $wpdb->query(
+            "DELETE FROM $table_name WHERE user_id NOT IN (SELECT ID FROM {$wpdb->users})"
+        );
+
+        return $created;
     }
 
     public function award_registration_points_to_existing_users() {
@@ -444,7 +394,14 @@ class PR_Admin_Settings {
         $count = 0;
 
         foreach ($all_users as $user_id) {
-            // Check if user has a record and if they've received registration points
+            // Check if user has already been awarded registration bonus (more reliable check)
+            $has_bonus_flag = get_user_meta($user_id, 'pr_registration_bonus_awarded', true);
+            
+            if ($has_bonus_flag === '1') {
+                continue; // Already awarded
+            }
+
+            // Check if user has a record
             $existing = $wpdb->get_row(
                 $wpdb->prepare("SELECT * FROM $table_name WHERE user_id = %d", $user_id)
             );
@@ -462,33 +419,24 @@ class PR_Admin_Settings {
                 );
 
                 if ($result !== false) {
+                    // Mark that we've awarded the registration bonus
+                    update_user_meta($user_id, 'pr_registration_bonus_awarded', '1');
                     $count++;
                 }
             } else {
-                // User has a record - check if they have registration bonus flag
-                $has_registration_bonus = $wpdb->get_var(
+                // User has a record - add registration points to existing points
+                $result = $wpdb->query(
                     $wpdb->prepare(
-                        "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE user_id = %d AND meta_key = %s",
-                        $user_id,
-                        'pr_registration_bonus_awarded'
+                        "UPDATE $table_name SET points = points + %d WHERE user_id = %d",
+                        $registration_points,
+                        $user_id
                     )
                 );
 
-                if (!$has_registration_bonus) {
-                    // User doesn't have registration bonus yet - add it
-                    $result = $wpdb->query(
-                        $wpdb->prepare(
-                            "UPDATE $table_name SET points = points + %d WHERE user_id = %d",
-                            $registration_points,
-                            $user_id
-                        )
-                    );
-
-                    if ($result !== false) {
-                        // Mark that we've awarded the registration bonus
-                        update_user_meta($user_id, 'pr_registration_bonus_awarded', '1');
-                        $count++;
-                    }
+                if ($result !== false) {
+                    // Mark that we've awarded the registration bonus
+                    update_user_meta($user_id, 'pr_registration_bonus_awarded', '1');
+                    $count++;
                 }
             }
         }
