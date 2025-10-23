@@ -26,6 +26,7 @@ define('PR_PLUGIN_URL', plugin_dir_url(__FILE__));
 require_once PR_PLUGIN_PATH . 'includes/class-points-manager.php';
 require_once PR_PLUGIN_PATH . 'includes/class-admin-settings.php';
 require_once PR_PLUGIN_PATH . 'includes/class-product-purchase.php';
+require_once PR_PLUGIN_PATH . 'includes/class-frontend-display.php';
 
 // Initialize plugin
 class Points_Rewards_Plugin {
@@ -43,6 +44,10 @@ class Points_Rewards_Plugin {
         new PR_Admin_Settings();
         new PR_Points_Manager();
         new PR_Product_Purchase();
+        new PR_Frontend_Display();
+
+        // Enqueue frontend CSS
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_styles'));
 
         // Schedule daily maintenance
         add_action('wp', array($this, 'schedule_maintenance'));
@@ -119,6 +124,15 @@ class Points_Rewards_Plugin {
 
     public function wc_missing_notice() {
         echo '<div class="error"><p><strong>Ahmed\'s Pointsystem</strong> requires WooCommerce to be installed and active.</p></div>';
+    }
+
+    public function enqueue_frontend_styles() {
+        wp_enqueue_style(
+            'pr-frontend-style',
+            PR_PLUGIN_URL . 'assets/css/frontend-style.css',
+            array(),
+            '1.0.0'
+        );
     }
 }
 
