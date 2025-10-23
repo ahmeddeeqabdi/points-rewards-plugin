@@ -65,7 +65,6 @@ class PR_Admin_Settings {
             'default' => 'no'
         ));
         register_setting('pr_settings', 'pr_allowed_categories', array(
-            'type' => 'array',
             'sanitize_callback' => array($this, 'sanitize_allowed_categories'),
             'default' => array()
         ));
@@ -416,5 +415,18 @@ class PR_Admin_Settings {
     public function sanitize_registration_points($value) {
         $value = intval($value);
         return max(0, $value); // Cannot be negative
+    }
+
+    public function sanitize_allowed_categories($value) {
+        if (is_array($value)) {
+            return array_map('intval', array_filter($value, 'is_numeric'));
+        }
+        if (is_string($value)) {
+            // handle comma-separated input just in case
+            $parts = array_filter(array_map('trim', explode(',', $value)));
+            $numeric_parts = array_filter($parts, 'is_numeric');
+            return array_map('intval', $numeric_parts);
+        }
+        return array();
     }
 }
