@@ -96,6 +96,9 @@ class PR_Admin_Settings {
             return; // Not our action
         }
         
+        // Increase timeout for this operation
+        @set_time_limit(300);
+        
         // Verify nonce
         if (!isset($_POST['_wpnonce'])) {
             wp_die('Security check failed. Nonce missing.');
@@ -122,9 +125,9 @@ class PR_Admin_Settings {
         
         // Set transient for success message
         if ($count > 0) {
-            set_transient('pr_award_notice_success', sprintf(__('Successfully awarded registration points to %d users.', 'ahmeds-pointsystem'), $count), 30);
+            set_transient('pr_award_notice_success', sprintf(__('Successfully recalculated points for %d users.', 'ahmeds-pointsystem'), $count), 30);
         } else {
-            set_transient('pr_award_notice_info', __('All eligible users have already received their registration bonus.', 'ahmeds-pointsystem'), 30);
+            set_transient('pr_award_notice_info', __('Recalculation complete.', 'ahmeds-pointsystem'), 30);
         }
         
         // Redirect to prevent form resubmission
@@ -207,31 +210,7 @@ class PR_Admin_Settings {
                                 </p>
                             </td>
                         </tr>
-                        <tr>
-                            <th scope="row">
-                                <label>Award to Existing Users</label>
-                            </th>
-                            <td>
-                                <p class="description">
-                                    Award registration bonus points to all existing users (one-time action)
-                                </p>
-                            </td>
-                        </tr>
                     </table>
-                </div>
-
-                <!-- Award Points Action Form (separate to avoid nonce conflicts) -->
-                <div class="pr-card">
-                    <h2>Apply Registration Bonus</h2>
-                    <form method="post" action="">
-                        <?php wp_nonce_field('pr_award_existing_nonce'); ?>
-                        <input type="hidden" name="pr_award_existing_points" value="1" />
-                        <p>Click the button below to recalculate and apply the current registration bonus setting to all users. This will ensure all users get the bonus points in addition to their spending-based points.</p>
-                        <button type="submit" class="button button-primary" 
-                                onclick="return confirm('This will apply the registration bonus to all users. Continue?');">
-                            Apply Registration Bonus to All Users
-                        </button>
-                    </form>
                 </div>
 
                 <div class="pr-card">
@@ -310,6 +289,20 @@ class PR_Admin_Settings {
 
                 <?php submit_button(); ?>
             </form>
+
+            <!-- Apply Bonus Action (separate form to avoid nonce conflicts with main settings form) -->
+            <div class="pr-card">
+                <h2>📊 Apply Bonus to Users</h2>
+                <form method="post" action="">
+                    <?php wp_nonce_field('pr_award_existing_nonce'); ?>
+                    <input type="hidden" name="pr_award_existing_points" value="1" />
+                    <p>Click the button below to recalculate and apply the current registration bonus to all users.</p>
+                    <button type="submit" class="button button-primary" 
+                            onclick="return confirm('This will apply the registration bonus to all users. Continue?');">
+                        Recalculate Registration Bonus for All Users
+                    </button>
+                </form>
+            </div>
         </div>
         <?php
     }
@@ -492,42 +485,39 @@ class PR_Admin_Settings {
             return 0; // No users with orders
         }
 
+        // Get ALL spending data in one query for efficiency
+        $all_spent = $wpdb->get_results("
+            SELECT 
+                pm_customer.meta_value as user_id,
+                SUM(CAST(pm_total.meta_value AS DECIMAL(10,2))) as total_spent
+            FROM {$wpdb->posts} p
+            INNER JOIN {$wpdb->postmeta} pm_customer ON p.ID = pm_customer.post_id AND pm_customer.meta_key = '_customer_user'
+            INNER JOIN {$wpdb->postmeta} pm_total ON p.ID = pm_total.post_id AND pm_total.meta_key = '_order_total'
+            WHERE p.post_type = 'shop_order' AND p.post_status = 'wc-completed'
+            GROUP BY pm_customer.meta_value
+        ");
+        
+        // Create lookup map for fast access
+        $spent_map = array();
+        foreach ($all_spent as $row) {
+            $spent_map[$row->user_id] = floatval($row->total_spent);
+        }
+
         $count = 0;
 
+        // Batch update all users at once
         foreach ($all_users as $user) {
             $user_id = intval($user->user_id);
-            
-            // Check if user already exists in table
-            $existing = $wpdb->get_row($wpdb->prepare("
-                SELECT id FROM $table_name WHERE user_id = %d LIMIT 1
-            ", $user_id));
-            
-            if (!$existing) {
-                // User doesn't exist, create record with 0 points initially
-                $wpdb->insert(
-                    $table_name,
-                    array(
-                        'user_id' => $user_id,
-                        'points' => 0,
-                        'redeemed_points' => 0
-                    ),
-                    array('%d', '%d', '%d')
-                );
-            }
-            
-            // Get the total spent by this user
-            $spent_result = $wpdb->get_row($wpdb->prepare("
-                SELECT SUM(CAST(pm_total.meta_value AS DECIMAL(10,2))) as total_spent
-                FROM {$wpdb->posts} p
-                INNER JOIN {$wpdb->postmeta} pm_customer ON p.ID = pm_customer.post_id AND pm_customer.meta_key = '_customer_user' AND pm_customer.meta_value = %d
-                INNER JOIN {$wpdb->postmeta} pm_total ON p.ID = pm_total.post_id AND pm_total.meta_key = '_order_total'
-                WHERE p.post_type = 'shop_order' AND p.post_status = 'wc-completed'
-            ", $user_id));
-            
-            $total_spent = floatval($spent_result->total_spent ?? 0);
+            $total_spent = isset($spent_map[$user_id]) ? $spent_map[$user_id] : 0;
             $purchase_points = intval(floor($total_spent / $conversion_rate));
             
-            // Update the user's points to be purchase points only (registration bonus applied dynamically in display)
+            // Ensure user exists in table
+            $wpdb->query($wpdb->prepare("
+                INSERT IGNORE INTO $table_name (user_id, points, redeemed_points)
+                VALUES (%d, %d, 0)
+            ", $user_id, $purchase_points));
+            
+            // Update the user's points to be purchase points only
             $updated = $wpdb->update(
                 $table_name,
                 array('points' => $purchase_points),

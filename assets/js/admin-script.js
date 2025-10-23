@@ -28,16 +28,34 @@ jQuery(document).ready(function ($) {
     $(".pr-categories-row").hide();
   }
 
-  // Add visual feedback on button click
-  $("form .button-primary, form .button-secondary").on("click", function () {
-    $(this).prop("disabled", true);
-    const originalText = $(this).text();
-    $(this).text("Processing...");
+  // Prevent clicking recalculate button without saving settings first
+  $("form").last().on("submit", function (e) {
+    const $settingsForm = $("form").first();
+    const hasUnsavedChanges = $settingsForm.find("input, select").is(function () {
+      const $input = $(this);
+      const initialValue = $input.data("initial-value");
+      const currentValue = $input.val();
+      return initialValue !== undefined && initialValue !== currentValue;
+    });
+
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      alert("Please save your settings first by clicking 'Save Settings' before applying the bonus.");
+      return false;
+    }
+
+    $(this).find("button").prop("disabled", true);
+    $(this).find("button").text("Recalculating...");
   });
 
-  // Improve form submission experience
-  $("form").on("submit", function () {
-    $(this).find("button").prop("disabled", true);
+  // Store initial values for change detection
+  $("form").first().find("input, select").each(function () {
+    $(this).data("initial-value", $(this).val());
+  });
+
+  // Detect when form values change
+  $("form").first().on("change", "input, select", function () {
+    $(this).data("initial-value", $(this).val());
   });
 
   // Add focus styles for better accessibility
