@@ -6,7 +6,6 @@ class PR_Admin_Settings {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
-        add_action('wp_ajax_save_pr_settings', array($this, 'save_settings'));
         add_action('update_option_pr_conversion_rate', array($this, 'recalculate_points_on_conversion_rate_change'), 10, 2);
         add_action('update_option_pr_registration_points', array($this, 'cleanup_on_settings_change'), 10, 2);
         add_action('update_option_pr_enable_purchase', array($this, 'cleanup_on_settings_change'), 10, 2);
@@ -16,30 +15,30 @@ class PR_Admin_Settings {
 
     public function add_admin_menu() {
         add_menu_page(
-            'Points & Rewards',
-            'Points & Rewards',
+            'Ahmed\'s Pointsystem',
+            'Ahmed\'s Pointsystem',
             'manage_options',
-            'points-rewards',
+            'ahmeds-pointsystem',
             array($this, 'settings_page'),
             'dashicons-star-filled',
             56
         );
 
         add_submenu_page(
-            'points-rewards',
+            'ahmeds-pointsystem',
             'Settings',
             'Settings',
             'manage_options',
-            'points-rewards',
+            'ahmeds-pointsystem',
             array($this, 'settings_page')
         );
 
         add_submenu_page(
-            'points-rewards',
+            'ahmeds-pointsystem',
             'Users Points',
             'Users Points',
             'manage_options',
-            'points-rewards-users',
+            'ahmeds-pointsystem-users',
             array($this, 'users_page')
         );
     }
@@ -47,12 +46,12 @@ class PR_Admin_Settings {
     public function register_settings() {
         register_setting('pr_settings', 'pr_conversion_rate', array(
             'type' => 'number',
-            'sanitize_callback' => 'floatval',
+            'sanitize_callback' => array($this, 'sanitize_conversion_rate'),
             'default' => 1
         ));
         register_setting('pr_settings', 'pr_registration_points', array(
             'type' => 'number',
-            'sanitize_callback' => 'intval',
+            'sanitize_callback' => array($this, 'sanitize_registration_points'),
             'default' => 0
         ));
         register_setting('pr_settings', 'pr_enable_purchase', array(
@@ -100,7 +99,7 @@ class PR_Admin_Settings {
         
         ?>
         <div class="wrap pr-settings-wrap">
-            <h1>Points & Rewards Settings</h1>
+            <h1>Ahmed's Pointsystem Settings</h1>
             
             <form method="post" action="options.php">
                 <?php 
@@ -233,16 +232,31 @@ class PR_Admin_Settings {
         global $wpdb;
         $table_name = $wpdb->prefix . 'user_points';
         
+        // Get all customers with their total spent and points
         $results = $wpdb->get_results("
-            SELECT up.*, u.display_name, u.user_email 
-            FROM $table_name up
-            LEFT JOIN {$wpdb->users} u ON up.user_id = u.ID
-            ORDER BY up.points DESC
+            SELECT 
+                u.ID as user_id,
+                u.display_name,
+                u.user_email,
+                COALESCE(SUM(pm.meta_value), 0) as total_spent,
+                COALESCE(up.points, 0) as points,
+                COALESCE(up.redeemed_points, 0) as redeemed_points
+            FROM {$wpdb->users} u
+            INNER JOIN {$wpdb->postmeta} pm_customer ON u.ID = pm_customer.meta_value 
+                AND pm_customer.meta_key = '_customer_user'
+            INNER JOIN {$wpdb->posts} p ON pm_customer.post_id = p.ID 
+                AND p.post_type = 'shop_order' 
+                AND p.post_status = 'wc-completed'
+            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id 
+                AND pm.meta_key = '_order_total'
+            LEFT JOIN $table_name up ON u.ID = up.user_id
+            GROUP BY u.ID, u.display_name, u.user_email, up.points, up.redeemed_points
+            ORDER BY total_spent DESC
         ");
         
         ?>
         <div class="wrap pr-users-wrap">
-            <h1>Users Points</h1>
+            <h1>Ahmed's Pointsystem - Users Points</h1>
             
             <div class="pr-card">
                 <table class="wp-list-table widefat fixed striped">
@@ -250,6 +264,7 @@ class PR_Admin_Settings {
                         <tr>
                             <th>Name</th>
                             <th>Email</th>
+                            <th>Total Spent</th>
                             <th>Points</th>
                             <th>Redeemed Points</th>
                         </tr>
@@ -260,13 +275,14 @@ class PR_Admin_Settings {
                                 <tr>
                                     <td><?php echo esc_html($row->display_name); ?></td>
                                     <td><?php echo esc_html($row->user_email); ?></td>
+                                    <td><?php echo wc_price($row->total_spent); ?></td>
                                     <td><strong><?php echo esc_html($row->points); ?></strong></td>
                                     <td><?php echo esc_html($row->redeemed_points); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else : ?>
                             <tr>
-                                <td colspan="4">No users with points yet.</td>
+                                <td colspan="5">No customers with completed orders yet.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
@@ -285,10 +301,8 @@ class PR_Admin_Settings {
         global $wpdb;
         $table_name = $wpdb->prefix . 'user_points';
 
-        $new_conversion_rate = (float) $new_value;
-        if ($new_conversion_rate <= 0) {
-            $new_conversion_rate = 1;
-        }
+        $old_conversion_rate = max(0.01, (float) $old_value);
+        $new_conversion_rate = max(0.01, (float) $new_value);
 
         // Get all completed orders with _points_awarded flag
         if (function_exists('wc_get_orders')) {
@@ -298,48 +312,22 @@ class PR_Admin_Settings {
                 'return' => 'ids',
             ));
 
-            // Reset all user points to 0 first (they'll be recalculated from orders)
-            $wpdb->query("UPDATE $table_name SET points = 0");
+            // Calculate adjustment factor
+            $adjustment_factor = $old_conversion_rate / $new_conversion_rate;
 
-            // Recalculate points for each order based on new conversion rate
-            foreach ($orders as $order_id) {
-                $order = wc_get_order($order_id);
-                if (!$order) {
-                    continue;
-                }
+            // Update existing points by multiplying with adjustment factor
+            $result = $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE $table_name SET points = FLOOR(points * %f)",
+                    $adjustment_factor
+                )
+            );
 
-                $user_id = $order->get_user_id();
-                $order_total = (float) $order->get_total();
-
-                if (!$user_id || $order_total <= 0) {
-                    continue;
-                }
-
-                $points = (int) floor($order_total / $new_conversion_rate);
-                if ($points > 0) {
-                    // Add points to user
-                    $existing = $wpdb->get_row(
-                        $wpdb->prepare("SELECT * FROM $table_name WHERE user_id = %d", $user_id)
-                    );
-
-                    if ($existing) {
-                        $wpdb->update(
-                            $table_name,
-                            array('points' => $existing->points + $points),
-                            array('user_id' => $user_id)
-                        );
-                    } else {
-                        $wpdb->insert(
-                            $table_name,
-                            array(
-                                'user_id' => $user_id,
-                                'points' => $points,
-                                'redeemed_points' => 0,
-                            )
-                        );
-                    }
-                }
+            if ($result === false) {
+                error_log("Points & Rewards: Failed to recalculate points on conversion rate change: " . $wpdb->last_error);
             }
+
+            // For new orders that might not have been processed yet, we'll let them be handled normally
         }
 
         // Always run cleanup after recalculation
@@ -390,7 +378,7 @@ class PR_Admin_Settings {
                 }
 
                 // Update the first row with totals
-                $wpdb->update(
+                $result = $wpdb->update(
                     $table_name,
                     array(
                         'points' => $total_points,
@@ -399,27 +387,34 @@ class PR_Admin_Settings {
                     array('id' => $first_row_id)
                 );
 
+                if ($result === false) {
+                    error_log("Points & Rewards: Failed to update merged points for user $user_id: " . $wpdb->last_error);
+                    continue;
+                }
+
                 // Delete all duplicate rows (keep only the first one)
-                $wpdb->query(
+                $delete_result = $wpdb->query(
                     $wpdb->prepare(
                         "DELETE FROM $table_name WHERE user_id = %d AND id > %d",
                         $user_id,
                         $first_row_id
                     )
                 );
+
+                if ($delete_result === false) {
+                    error_log("Points & Rewards: Failed to delete duplicate rows for user $user_id: " . $wpdb->last_error);
+                }
             }
         }
     }
 
-    public function sanitize_allowed_categories($value) {
-        if (is_array($value)) {
-            return array_map('intval', $value);
-        }
-        if (is_string($value)) {
-            // handle comma-separated input just in case
-            $parts = array_filter(array_map('trim', explode(',', $value)));
-            return array_map('intval', $parts);
-        }
-        return array();
+    public function sanitize_conversion_rate($value) {
+        $value = floatval($value);
+        return max(0.01, $value); // Minimum 0.01 to prevent division by zero
+    }
+
+    public function sanitize_registration_points($value) {
+        $value = intval($value);
+        return max(0, $value); // Cannot be negative
     }
 }

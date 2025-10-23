@@ -1,14 +1,14 @@
 <?php
 /**
- * Plugin Name: Points & Rewards for WooCommerce
- * Plugin URI: https://example.com/points-rewards
- * Description: Custom points and rewards system for WooCommerce
+ * Plugin Name: Ahmed's Pointsystem
+ * Plugin URI: https://example.com/ahmeds-pointsystem
+ * Description: Custom points and rewards system for WooCommerce by Ahmed
  * Version: 1.0.0
  * Author: Ahmed
  * Author URI: https://example.com
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: points-rewards
+ * Text Domain: ahmeds-pointsystem
  * Domain Path: /languages
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -54,8 +54,8 @@ class Points_Rewards_Plugin {
         $sql = "CREATE TABLE IF NOT EXISTS $table_name (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             user_id bigint(20) NOT NULL,
-            points int(11) NOT NULL DEFAULT 0,
-            redeemed_points int(11) NOT NULL DEFAULT 0,
+            points bigint(20) NOT NULL DEFAULT 0,
+            redeemed_points bigint(20) NOT NULL DEFAULT 0,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
             UNIQUE KEY user_id (user_id)
@@ -106,7 +106,7 @@ class Points_Rewards_Plugin {
 
                 $points = (int) floor($order_total / $conversion_rate);
                 if ($points > 0) {
-                    $wpdb->query(
+                    $result = $wpdb->query(
                         $wpdb->prepare(
                             "INSERT INTO $table_name (user_id, points, redeemed_points) VALUES (%d, %d, 0)
                             ON DUPLICATE KEY UPDATE points = points + VALUES(points)",
@@ -114,6 +114,10 @@ class Points_Rewards_Plugin {
                             $points
                         )
                     );
+                    
+                    if ($result === false) {
+                        error_log("Points & Rewards: Failed to backfill points for order $order_id, user $user_id: " . $wpdb->last_error);
+                    }
                 }
 
                 $order->update_meta_data('_points_awarded', 'yes');
@@ -123,7 +127,7 @@ class Points_Rewards_Plugin {
     }
 
     public function wc_missing_notice() {
-        echo '<div class="error"><p><strong>Points & Rewards</strong> requires WooCommerce to be installed and active.</p></div>';
+        echo '<div class="error"><p><strong>Ahmed\'s Pointsystem</strong> requires WooCommerce to be installed and active.</p></div>';
     }
 }
 
