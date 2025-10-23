@@ -63,9 +63,9 @@ class Points_Rewards_Plugin {
         }
 
         $admin_settings = new PR_Admin_Settings();
-        // Only run repair automatically (not award, which runs on activation)
+        // Only run repair and backfill - NOT award_registration_points_to_existing_users
+        // (that should only run on activation or manual button click)
         $admin_settings->repair_database();
-        // Backfill any missing order points
         $admin_settings->backfill_points_for_orders();
         
         // Update last run time

@@ -25,6 +25,10 @@ class PR_Product_Purchase {
             $conversion_rate = get_option('pr_conversion_rate', 1);
             $required_points = ceil($product_price / $conversion_rate);
             
+            // Get total points including registration bonus
+            $registration_bonus = intval(get_option('pr_registration_points', 0));
+            $total_available_points = $user_points->points + $registration_bonus;
+            
             wp_nonce_field('pr_use_points_nonce', 'pr_points_nonce');
             ?>
             <div class="pr-purchase-option">
@@ -32,9 +36,9 @@ class PR_Product_Purchase {
                     <input type="checkbox" 
                            name="pr_use_points" 
                            value="yes" 
-                           <?php echo $user_points->points < $required_points ? 'disabled' : ''; ?> />
+                           <?php echo $total_available_points < $required_points ? 'disabled' : ''; ?> />
                     Purchase with <?php echo $required_points; ?> points 
-                    (You have: <?php echo $user_points->points; ?> points)
+                    (You have: <?php echo $total_available_points; ?> points)
                 </label>
             </div>
             <?php

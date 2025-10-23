@@ -119,12 +119,18 @@ class PR_Points_Manager {
             return false;
         }
         
-        if ($existing && $existing->points >= $points) {
+        // Get registration bonus to calculate total available points
+        $registration_bonus = intval(get_option('pr_registration_points', 0));
+        $total_available_points = (int)$existing->points + $registration_bonus;
+        
+        if ($existing && $total_available_points >= $points) {
+            // Deduct from stored points first, then from the bonus
+            $points_to_deduct_from_stored = max(0, (int)$existing->points - $points);
             $result = $wpdb->update(
                 $table_name,
                 array(
-                    'points' => $existing->points - $points,
-                    'redeemed_points' => $existing->redeemed_points + $points
+                    'points' => $points_to_deduct_from_stored,
+                    'redeemed_points' => (int)$existing->redeemed_points + $points
                 ),
                 array('user_id' => $user_id)
             );

@@ -90,12 +90,68 @@ class PR_Admin_Settings {
         );
     }
 
+    public function handle_admin_actions() {
+        // Check if the award existing points button was clicked
+        if (!isset($_POST['pr_award_existing_points'])) {
+            return; // Not our action
+        }
+        
+        // Verify nonce
+        if (!isset($_POST['_wpnonce'])) {
+            wp_die('Security check failed. Nonce missing.');
+        }
+        
+        if (!wp_verify_nonce($_POST['_wpnonce'], 'pr_award_existing_nonce')) {
+            wp_die('Security check failed. Nonce expired or invalid.');
+        }
+        
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die('You do not have permission to perform this action.');
+        }
+        
+        // Sanitize input
+        $award_points = sanitize_text_field($_POST['pr_award_existing_points']);
+        
+        if ($award_points !== '1') {
+            return; // Invalid value
+        }
+        
+        // Award the points
+        $count = $this->award_registration_points_to_existing_users();
+        
+        // Set transient for success message
+        if ($count > 0) {
+            set_transient('pr_award_notice_success', sprintf(__('Successfully awarded registration points to %d users.', 'ahmeds-pointsystem'), $count), 30);
+        } else {
+            set_transient('pr_award_notice_info', __('All eligible users have already received their registration bonus.', 'ahmeds-pointsystem'), 30);
+        }
+        
+        // Redirect to prevent form resubmission
+        wp_safe_redirect(admin_url('admin.php?page=ahmeds-pointsystem'));
+        exit;
+    }
+
     public function settings_page() {
         $conversion_rate = get_option('pr_conversion_rate', 1);
         $registration_points = get_option('pr_registration_points', 0);
         $enable_purchase = get_option('pr_enable_purchase', 'no');
         $restrict_categories = get_option('pr_restrict_categories', 'no');
         $allowed_categories = get_option('pr_allowed_categories', array());
+        
+        // Display success/info messages
+        $success_message = get_transient('pr_award_notice_success');
+        $info_message = get_transient('pr_award_notice_info');
+        
+        if ($success_message) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html($success_message) . '</p></div>';
+            delete_transient('pr_award_notice_success');
+        }
+        
+        if ($info_message) {
+            echo '<div class="notice notice-info is-dismissible"><p>' . esc_html($info_message) . '</p></div>';
+            delete_transient('pr_award_notice_info');
+        }
         
         ?>
         <div class="wrap pr-settings-wrap">
@@ -142,6 +198,7 @@ class PR_Admin_Settings {
                                        name="pr_registration_points" 
                                        value="<?php echo esc_attr($registration_points); ?>" 
                                        min="0" 
+                                       step="1"
                                        class="regular-text" />
                                 <p class="description">
                                     Points awarded when a new user registers
@@ -153,20 +210,26 @@ class PR_Admin_Settings {
                                 <label>Award to Existing Users</label>
                             </th>
                             <td>
-                                <form method="post" action="" style="display:inline;">
-                                    <?php wp_nonce_field('pr_award_existing_nonce'); ?>
-                                    <input type="hidden" name="pr_award_existing_points" value="1" />
-                                    <button type="submit" class="button button-secondary" 
-                                            onclick="return confirm('This will award <?php echo esc_attr($registration_points); ?> points to all existing users. Continue?');">
-                                        Award <?php echo esc_attr($registration_points); ?> Points to All Users
-                                    </button>
-                                </form>
                                 <p class="description">
                                     Award registration bonus points to all existing users (one-time action)
                                 </p>
                             </td>
                         </tr>
                     </table>
+                </div>
+
+                <!-- Award Points Action Form (separate to avoid nonce conflicts) -->
+                <div class="pr-card">
+                    <h2>Apply Registration Bonus</h2>
+                    <form method="post" action="">
+                        <?php wp_nonce_field('pr_award_existing_nonce'); ?>
+                        <input type="hidden" name="pr_award_existing_points" value="1" />
+                        <p>Click the button below to recalculate and apply the current registration bonus setting to all users. This will ensure all users get the bonus points in addition to their spending-based points.</p>
+                        <button type="submit" class="button button-primary" 
+                                onclick="return confirm('This will apply the registration bonus to all users. Continue?');">
+                            Apply Registration Bonus to All Users
+                        </button>
+                    </form>
                 </div>
 
                 <div class="pr-card">
@@ -252,8 +315,11 @@ class PR_Admin_Settings {
         global $wpdb;
         $table_name = $wpdb->prefix . 'user_points';
         
-        // Get only members (users with points records)
-        // Optimized query: get basic user and points data without complex JOINs
+        // Get the current registration bonus setting
+        $registration_bonus = intval(get_option('pr_registration_points', 0));
+        
+        // Ultra-optimized query: Separate concerns for speed
+        // Step 1: Get all users with points (fast base query)
         $results = $wpdb->get_results("
             SELECT 
                 u.ID as user_id,
@@ -265,26 +331,46 @@ class PR_Admin_Settings {
             INNER JOIN $table_name up ON u.ID = up.user_id
             ORDER BY up.points DESC, u.display_name ASC
         ");
-
-        // Calculate total spent separately for display (simpler and faster)
-        $results_with_spent = array();
-        foreach ($results as $user) {
-            $user->total_spent = 0;
+        
+        // Step 2: Efficiently get total spent per user using a subquery
+        // This uses WooCommerce order meta directly without multiple joins
+        if (!empty($results)) {
+            $user_ids = wp_list_pluck($results, 'user_id');
+            $placeholders = implode(',', array_fill(0, count($user_ids), '%d'));
             
-            // Get user's total spent from WooCommerce orders
-            if (function_exists('wc_get_orders')) {
-                $orders = wc_get_orders(array(
-                    'customer' => $user->user_id,
-                    'status' => 'wc-completed',
-                    'return' => 'objects',
-                ));
+            // Get order totals for these specific users
+            // WooCommerce stores customer user ID in _customer_user postmeta
+            $spent_query = $wpdb->prepare("
+                SELECT 
+                    pm_customer.meta_value as user_id,
+                    SUM(CAST(pm_total.meta_value AS DECIMAL(10,2))) as total_spent
+                FROM {$wpdb->posts} p
+                INNER JOIN {$wpdb->postmeta} pm_customer ON p.ID = pm_customer.post_id AND pm_customer.meta_key = '_customer_user'
+                INNER JOIN {$wpdb->postmeta} pm_total ON p.ID = pm_total.post_id AND pm_total.meta_key = '_order_total'
+                WHERE p.post_type = 'shop_order' 
+                    AND p.post_status = 'wc-completed'
+                    AND pm_customer.meta_value IN ($placeholders)
+                GROUP BY pm_customer.meta_value
+            ", ...$user_ids);
+            
+            $spent_by_user = $wpdb->get_results($spent_query, OBJECT_K);
+            
+            // Get conversion rate for calculating purchase-based points
+            $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
+            
+            // Add spent amounts and calculate total points dynamically
+            foreach ($results as &$result) {
+                $result->total_spent = isset($spent_by_user[$result->user_id]) 
+                    ? floatval($spent_by_user[$result->user_id]->total_spent) 
+                    : 0;
                 
-                foreach ($orders as $order) {
-                    $user->total_spent += $order->get_total();
-                }
+                // Calculate purchase-based points from spending
+                $purchase_points = intval(floor($result->total_spent / $conversion_rate));
+                
+                // Display total = purchase points + registration bonus
+                $result->total_points_display = $purchase_points + $registration_bonus;
+                $result->purchase_points = $purchase_points;
             }
-            
-            $results_with_spent[] = $user;
         }
         
         ?>
@@ -303,13 +389,13 @@ class PR_Admin_Settings {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (!empty($results_with_spent)) : ?>
-                            <?php foreach ($results_with_spent as $row) : ?>
+                        <?php if (!empty($results)) : ?>
+                            <?php foreach ($results as $row) : ?>
                                 <tr>
                                     <td><?php echo esc_html($row->display_name); ?></td>
                                     <td><?php echo esc_html($row->user_email); ?></td>
                                     <td><?php echo wc_price($row->total_spent); ?></td>
-                                    <td><strong><?php echo esc_html($row->points); ?></strong></td>
+                                    <td><strong><?php echo esc_html($row->total_points_display); ?></strong></td>
                                     <td><?php echo esc_html($row->redeemed_points); ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -378,66 +464,54 @@ class PR_Admin_Settings {
     public function award_registration_points_to_existing_users() {
         global $wpdb;
         $table_name = $wpdb->prefix . 'user_points';
-        $registration_points = get_option('pr_registration_points', 0);
+        $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
 
-        if ($registration_points <= 0) {
-            return 0; // No points to award
-        }
-
-        // Get all registered users
-        $all_users = get_users(array('fields' => 'ID'));
+        // Get all users with points
+        $all_users = $wpdb->get_results("
+            SELECT DISTINCT pm_customer.meta_value as user_id
+            FROM {$wpdb->posts} p
+            INNER JOIN {$wpdb->postmeta} pm_customer ON p.ID = pm_customer.post_id AND pm_customer.meta_key = '_customer_user'
+            WHERE p.post_type = 'shop_order' AND p.post_status = 'wc-completed'
+        ");
 
         if (empty($all_users)) {
-            return 0; // No users
+            return 0; // No users with orders
         }
 
         $count = 0;
 
-        foreach ($all_users as $user_id) {
-            // Check if user has already been awarded registration bonus (more reliable check)
-            $has_bonus_flag = get_user_meta($user_id, 'pr_registration_bonus_awarded', true);
+        foreach ($all_users as $user) {
+            $user_id = intval($user->user_id);
             
-            if ($has_bonus_flag === '1') {
-                continue; // Already awarded
-            }
-
-            // Check if user has a record
-            $existing = $wpdb->get_row(
-                $wpdb->prepare("SELECT * FROM $table_name WHERE user_id = %d", $user_id)
+            // Get the total spent by this user
+            $spent_result = $wpdb->get_row($wpdb->prepare("
+                SELECT SUM(CAST(pm_total.meta_value AS DECIMAL(10,2))) as total_spent
+                FROM {$wpdb->posts} p
+                INNER JOIN {$wpdb->postmeta} pm_customer ON p.ID = pm_customer.post_id AND pm_customer.meta_key = '_customer_user' AND pm_customer.meta_value = %d
+                INNER JOIN {$wpdb->postmeta} pm_total ON p.ID = pm_total.post_id AND pm_total.meta_key = '_order_total'
+                WHERE p.post_type = 'shop_order' AND p.post_status = 'wc-completed'
+            ", $user_id));
+            
+            $total_spent = floatval($spent_result->total_spent ?? 0);
+            $purchase_points = intval(floor($total_spent / $conversion_rate));
+            
+            // Ensure user has a record
+            $wpdb->query($wpdb->prepare("
+                INSERT IGNORE INTO $table_name (user_id, points, redeemed_points)
+                VALUES (%d, 0, 0)
+            ", $user_id));
+            
+            // Update the user's points to be purchase points only (registration bonus applied dynamically in display)
+            $updated = $wpdb->update(
+                $table_name,
+                array('points' => $purchase_points),
+                array('user_id' => $user_id),
+                array('%d'),
+                array('%d')
             );
-
-            if ($existing === null) {
-                // User has no record at all - create one with registration points
-                $result = $wpdb->insert(
-                    $table_name,
-                    array(
-                        'user_id' => $user_id,
-                        'points' => $registration_points,
-                        'redeemed_points' => 0
-                    ),
-                    array('%d', '%d', '%d')
-                );
-
-                if ($result !== false) {
-                    // Mark that we've awarded the registration bonus
-                    update_user_meta($user_id, 'pr_registration_bonus_awarded', '1');
-                    $count++;
-                }
-            } else {
-                // User has a record - add registration points to existing points
-                $result = $wpdb->query(
-                    $wpdb->prepare(
-                        "UPDATE $table_name SET points = points + %d WHERE user_id = %d",
-                        $registration_points,
-                        $user_id
-                    )
-                );
-
-                if ($result !== false) {
-                    // Mark that we've awarded the registration bonus
-                    update_user_meta($user_id, 'pr_registration_bonus_awarded', '1');
-                    $count++;
-                }
+            
+            if ($updated !== false) {
+                $count++;
             }
         }
 
