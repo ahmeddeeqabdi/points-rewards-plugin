@@ -53,7 +53,7 @@ class PR_Admin_Settings {
         register_setting('pr_settings', 'pr_registration_points', array(
             'type' => 'number',
             'sanitize_callback' => array($this, 'sanitize_registration_points'),
-            'default' => 0
+            'default' => 10
         ));
         register_setting('pr_settings', 'pr_enable_purchase', array(
             'type' => 'string',
@@ -72,7 +72,7 @@ class PR_Admin_Settings {
     }
 
     public function enqueue_assets($hook) {
-        if (strpos($hook, 'points-rewards') === false) return;
+        if (strpos($hook, 'ahmeds-pointsystem') === false) return;
         
         wp_enqueue_style(
             'pr-admin-style',
@@ -102,9 +102,29 @@ class PR_Admin_Settings {
             <h1>Ahmed's Pointsystem Settings</h1>
             
             <?php if (isset($_GET['awarded'])) : ?>
-                <div class="notice notice-success is-dismissible">
-                    <p>Registration points have been successfully awarded to all existing users!</p>
-                </div>
+                <?php $count = intval($_GET['awarded']); ?>
+                <?php if ($count > 0) : ?>
+                    <div class="notice notice-success is-dismissible">
+                        <p><?php printf('Successfully awarded registration points to %d user(s)!', $count); ?></p>
+                    </div>
+                <?php else : ?>
+                    <div class="notice notice-info is-dismissible">
+                        <p>All existing users have already received their registration points. No new points were awarded.</p>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <?php if (isset($_GET['backfilled'])) : ?>
+                <?php $count = intval($_GET['backfilled']); ?>
+                <?php if ($count > 0) : ?>
+                    <div class="notice notice-success is-dismissible">
+                        <p><?php printf('Successfully awarded points for %d order(s)!', $count); ?></p>
+                    </div>
+                <?php else : ?>
+                    <div class="notice notice-info is-dismissible">
+                        <p>All completed orders have already had points awarded. No new points were backfilled.</p>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
 
             <?php if (isset($_GET['cleaned'])) : ?>
@@ -259,6 +279,24 @@ class PR_Admin_Settings {
                     <table class="form-table">
                         <tr>
                             <th scope="row">
+                                <label>Backfill Points for Existing Orders</label>
+                            </th>
+                            <td>
+                                <form method="post" action="" style="display:inline;">
+                                    <?php wp_nonce_field('pr_backfill_nonce'); ?>
+                                    <input type="hidden" name="pr_backfill_orders" value="1" />
+                                    <button type="submit" class="button button-secondary" 
+                                            onclick="return confirm('This will recalculate and award points for all existing completed orders that are missing points. Continue?');">
+                                        Backfill Points for Orders
+                                    </button>
+                                </form>
+                                <p class="description">
+                                    Award points to users for orders placed before the plugin was activated or where points were not awarded
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
                                 <label>Clean Up Duplicate Users</label>
                             </th>
                             <td>
@@ -288,27 +326,40 @@ class PR_Admin_Settings {
         global $wpdb;
         $table_name = $wpdb->prefix . 'user_points';
         
-        // Get all customers with their total spent and points
+        // Get only members (users with points records)
+        // Optimized query: get basic user and points data without complex JOINs
         $results = $wpdb->get_results("
             SELECT 
                 u.ID as user_id,
                 u.display_name,
                 u.user_email,
-                COALESCE(SUM(pm.meta_value), 0) as total_spent,
-                COALESCE(up.points, 0) as points,
-                COALESCE(up.redeemed_points, 0) as redeemed_points
+                up.points as points,
+                up.redeemed_points as redeemed_points
             FROM {$wpdb->users} u
-            INNER JOIN {$wpdb->postmeta} pm_customer ON u.ID = pm_customer.meta_value 
-                AND pm_customer.meta_key = '_customer_user'
-            INNER JOIN {$wpdb->posts} p ON pm_customer.post_id = p.ID 
-                AND p.post_type = 'shop_order' 
-                AND p.post_status = 'wc-completed'
-            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id 
-                AND pm.meta_key = '_order_total'
-            LEFT JOIN $table_name up ON u.ID = up.user_id
-            GROUP BY u.ID, u.display_name, u.user_email, up.points, up.redeemed_points
-            ORDER BY total_spent DESC
+            INNER JOIN $table_name up ON u.ID = up.user_id
+            ORDER BY up.points DESC, u.display_name ASC
         ");
+
+        // Calculate total spent separately for display (simpler and faster)
+        $results_with_spent = array();
+        foreach ($results as $user) {
+            $user->total_spent = 0;
+            
+            // Get user's total spent from WooCommerce orders
+            if (function_exists('wc_get_orders')) {
+                $orders = wc_get_orders(array(
+                    'customer' => $user->user_id,
+                    'status' => 'wc-completed',
+                    'return' => 'objects',
+                ));
+                
+                foreach ($orders as $order) {
+                    $user->total_spent += $order->get_total();
+                }
+            }
+            
+            $results_with_spent[] = $user;
+        }
         
         ?>
         <div class="wrap pr-users-wrap">
@@ -326,8 +377,8 @@ class PR_Admin_Settings {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (!empty($results)) : ?>
-                            <?php foreach ($results as $row) : ?>
+                        <?php if (!empty($results_with_spent)) : ?>
+                            <?php foreach ($results_with_spent as $row) : ?>
                                 <tr>
                                     <td><?php echo esc_html($row->display_name); ?></td>
                                     <td><?php echo esc_html($row->user_email); ?></td>
@@ -351,8 +402,16 @@ class PR_Admin_Settings {
     public function handle_admin_actions() {
         if (isset($_POST['pr_award_existing_points']) && check_admin_referer('pr_award_existing_nonce')) {
             if (current_user_can('manage_options')) {
-                $this->award_registration_points_to_existing_users();
-                wp_redirect(admin_url('admin.php?page=ahmeds-pointsystem&awarded=1'));
+                $count = $this->award_registration_points_to_existing_users();
+                wp_redirect(admin_url('admin.php?page=ahmeds-pointsystem&awarded=' . intval($count)));
+                exit;
+            }
+        }
+
+        if (isset($_POST['pr_backfill_orders']) && check_admin_referer('pr_backfill_nonce')) {
+            if (current_user_can('manage_options')) {
+                $count = $this->backfill_points_for_orders();
+                wp_redirect(admin_url('admin.php?page=ahmeds-pointsystem&backfilled=' . intval($count)));
                 exit;
             }
         }
@@ -372,40 +431,143 @@ class PR_Admin_Settings {
         $registration_points = get_option('pr_registration_points', 0);
 
         if ($registration_points <= 0) {
-            return; // No points to award
+            return 0; // No points to award
         }
 
-        // Get all users who don't have points yet
-        $users_without_points = $wpdb->get_results("
-            SELECT u.ID as user_id
-            FROM {$wpdb->users} u
-            LEFT JOIN $table_name up ON u.ID = up.user_id
-            WHERE up.user_id IS NULL
-        ");
+        // Get all registered users
+        $all_users = get_users(array('fields' => 'ID'));
 
-        if (empty($users_without_points)) {
-            return; // All users already have points
+        if (empty($all_users)) {
+            return 0; // No users
         }
 
-        // Insert points for users who don't have them
-        $values = array();
-        $placeholders = array();
+        $count = 0;
 
-        foreach ($users_without_points as $user) {
-            $values[] = $user->user_id;
-            $values[] = $registration_points;
-            $values[] = 0; // redeemed_points
-            $placeholders[] = '(%d, %d, %d)';
-        }
+        foreach ($all_users as $user_id) {
+            // Check if user has a record and if they've received registration points
+            $existing = $wpdb->get_row(
+                $wpdb->prepare("SELECT * FROM $table_name WHERE user_id = %d", $user_id)
+            );
 
-        if (!empty($values)) {
-            $query = "INSERT INTO $table_name (user_id, points, redeemed_points) VALUES " . implode(', ', $placeholders);
-            $result = $wpdb->query($wpdb->prepare($query, $values));
+            if ($existing === null) {
+                // User has no record at all - create one with registration points
+                $result = $wpdb->insert(
+                    $table_name,
+                    array(
+                        'user_id' => $user_id,
+                        'points' => $registration_points,
+                        'redeemed_points' => 0
+                    ),
+                    array('%d', '%d', '%d')
+                );
 
-            if ($result === false) {
-                error_log("Points & Rewards: Failed to award registration points to existing users: " . $wpdb->last_error);
+                if ($result !== false) {
+                    $count++;
+                }
+            } else {
+                // User has a record - check if they have registration bonus flag
+                $has_registration_bonus = $wpdb->get_var(
+                    $wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE user_id = %d AND meta_key = %s",
+                        $user_id,
+                        'pr_registration_bonus_awarded'
+                    )
+                );
+
+                if (!$has_registration_bonus) {
+                    // User doesn't have registration bonus yet - add it
+                    $result = $wpdb->query(
+                        $wpdb->prepare(
+                            "UPDATE $table_name SET points = points + %d WHERE user_id = %d",
+                            $registration_points,
+                            $user_id
+                        )
+                    );
+
+                    if ($result !== false) {
+                        // Mark that we've awarded the registration bonus
+                        update_user_meta($user_id, 'pr_registration_bonus_awarded', '1');
+                        $count++;
+                    }
+                }
             }
         }
+
+        return $count;
+    }
+
+    public function backfill_points_for_orders() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'user_points';
+
+        if (!function_exists('wc_get_orders')) {
+            return 0; // WooCommerce not available
+        }
+
+        $conversion_rate = max(0.01, (float) get_option('pr_conversion_rate', 1));
+
+        // Get all completed orders
+        $orders = wc_get_orders(array(
+            'status' => array('wc-completed'),
+            'limit' => -1,
+            'return' => 'ids',
+        ));
+
+        $count = 0;
+
+        foreach ($orders as $order_id) {
+            $order = wc_get_order($order_id);
+            if (!$order) {
+                continue;
+            }
+
+            // Check if already awarded
+            if ($order->get_meta('_points_awarded') === 'yes') {
+                continue;
+            }
+
+            $user_id = $order->get_user_id();
+            $order_total = (float) $order->get_total();
+
+            // Skip if no user or no order total
+            if (!$user_id || $order_total <= 0) {
+                $order->update_meta_data('_points_awarded', 'yes');
+                $order->save();
+                continue;
+            }
+
+            $points = (int) floor($order_total / $conversion_rate);
+            if ($points > 0) {
+                // First ensure user has a row
+                $wpdb->query(
+                    $wpdb->prepare(
+                        "INSERT IGNORE INTO $table_name (user_id, points, redeemed_points) VALUES (%d, 0, 0)",
+                        $user_id
+                    )
+                );
+
+                // Then update points
+                $result = $wpdb->query(
+                    $wpdb->prepare(
+                        "UPDATE $table_name SET points = points + %d WHERE user_id = %d",
+                        $points,
+                        $user_id
+                    )
+                );
+
+                if ($result !== false) {
+                    $count++;
+                } else {
+                    error_log("Points & Rewards: Failed to backfill points for order $order_id, user $user_id: " . $wpdb->last_error);
+                }
+            }
+
+            // Mark as awarded
+            $order->update_meta_data('_points_awarded', 'yes');
+            $order->save();
+        }
+
+        return $count;
     }
 
     public function recalculate_points_on_conversion_rate_change($old_value, $new_value) {

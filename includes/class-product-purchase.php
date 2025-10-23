@@ -25,6 +25,7 @@ class PR_Product_Purchase {
             $conversion_rate = get_option('pr_conversion_rate', 1);
             $required_points = ceil($product_price / $conversion_rate);
             
+            wp_nonce_field('pr_use_points_nonce', 'pr_points_nonce');
             ?>
             <div class="pr-purchase-option">
                 <label>
@@ -54,8 +55,12 @@ class PR_Product_Purchase {
     }
 
     public function add_cart_item_data($cart_item_data, $product_id) {
-        if (isset($_POST['pr_use_points']) && $_POST['pr_use_points'] === 'yes') {
-            $cart_item_data['pr_use_points'] = 'yes';
+        if (isset($_POST['pr_points_nonce'])) {
+            if (wp_verify_nonce($_POST['pr_points_nonce'], 'pr_use_points_nonce')) {
+                if (isset($_POST['pr_use_points']) && sanitize_text_field($_POST['pr_use_points']) === 'yes') {
+                    $cart_item_data['pr_use_points'] = 'yes';
+                }
+            }
         }
         return $cart_item_data;
     }

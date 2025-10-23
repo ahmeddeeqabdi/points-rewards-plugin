@@ -14,6 +14,8 @@ class PR_Points_Manager {
         $registration_points = get_option('pr_registration_points', 0);
         if ($registration_points > 0) {
             $this->add_points($user_id, $registration_points);
+            // Mark that this user received the registration bonus
+            update_user_meta($user_id, 'pr_registration_bonus_awarded', '1');
         }
     }
 
