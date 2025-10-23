@@ -1,5 +1,16 @@
 /* Points Dashboard - My Account Page */
 
+.pr-point-log-wrapper {
+  background: #f8f9fa;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+.pr-point-log-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
 .pr-points-dashboard {
   background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
   border: 1px solid #e5e7eb;
@@ -25,7 +36,7 @@
 /* Grid Layout for Points Cards */
 .pr-points-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   margin-bottom: 30px;
 }
