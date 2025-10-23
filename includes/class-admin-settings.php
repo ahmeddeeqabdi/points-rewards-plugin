@@ -318,6 +318,9 @@ class PR_Admin_Settings {
         // Get the current registration bonus setting
         $registration_bonus = intval(get_option('pr_registration_points', 0));
         
+        // First, ensure no duplicates exist
+        $this->cleanup_duplicate_users();
+        
         // Ultra-optimized query: Separate concerns for speed
         // Step 1: Get all users with points (fast base query)
         $results = $wpdb->get_results("
@@ -329,7 +332,6 @@ class PR_Admin_Settings {
                 up.redeemed_points as redeemed_points
             FROM {$wpdb->users} u
             INNER JOIN $table_name up ON u.ID = up.user_id
-            ORDER BY up.points DESC, u.display_name ASC
         ");
         
         // Step 2: Efficiently get total spent per user using a subquery
@@ -371,6 +373,11 @@ class PR_Admin_Settings {
                 $result->total_points_display = $purchase_points + $registration_bonus;
                 $result->purchase_points = $purchase_points;
             }
+            
+            // Sort by total spent (descending) to show highest spenders first
+            usort($results, function($a, $b) {
+                return $b->total_spent <=> $a->total_spent;
+            });
         }
         
         ?>
@@ -464,9 +471,13 @@ class PR_Admin_Settings {
     public function award_registration_points_to_existing_users() {
         global $wpdb;
         $table_name = $wpdb->prefix . 'user_points';
+        
+        // First, clean up any duplicates
+        $this->cleanup_duplicate_users();
+        
         $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
 
-        // Get all users with points
+        // Get all users with completed orders
         $all_users = $wpdb->get_results("
             SELECT DISTINCT pm_customer.meta_value as user_id
             FROM {$wpdb->posts} p
@@ -483,6 +494,24 @@ class PR_Admin_Settings {
         foreach ($all_users as $user) {
             $user_id = intval($user->user_id);
             
+            // Check if user already exists in table
+            $existing = $wpdb->get_row($wpdb->prepare("
+                SELECT id FROM $table_name WHERE user_id = %d LIMIT 1
+            ", $user_id));
+            
+            if (!$existing) {
+                // User doesn't exist, create record with 0 points initially
+                $wpdb->insert(
+                    $table_name,
+                    array(
+                        'user_id' => $user_id,
+                        'points' => 0,
+                        'redeemed_points' => 0
+                    ),
+                    array('%d', '%d', '%d')
+                );
+            }
+            
             // Get the total spent by this user
             $spent_result = $wpdb->get_row($wpdb->prepare("
                 SELECT SUM(CAST(pm_total.meta_value AS DECIMAL(10,2))) as total_spent
@@ -494,12 +523,6 @@ class PR_Admin_Settings {
             
             $total_spent = floatval($spent_result->total_spent ?? 0);
             $purchase_points = intval(floor($total_spent / $conversion_rate));
-            
-            // Ensure user has a record
-            $wpdb->query($wpdb->prepare("
-                INSERT IGNORE INTO $table_name (user_id, points, redeemed_points)
-                VALUES (%d, 0, 0)
-            ", $user_id));
             
             // Update the user's points to be purchase points only (registration bonus applied dynamically in display)
             $updated = $wpdb->update(
@@ -514,6 +537,9 @@ class PR_Admin_Settings {
                 $count++;
             }
         }
+        
+        // Final cleanup to ensure no duplicates remain
+        $this->cleanup_duplicate_users();
 
         return $count;
     }
