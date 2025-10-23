@@ -1,20 +1,37 @@
 .pr-settings-wrap {
   max-width: 1200px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.pr-settings-wrap h1 {
+  color: #1d2327;
+  margin-bottom: 30px;
+  font-size: 2.5em;
+  font-weight: 600;
 }
 
 .pr-card {
   background: #fff;
   border: 1px solid #ccd0d4;
-  border-radius: 4px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  padding: 28px;
+  margin-bottom: 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease;
+}
+
+.pr-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .pr-card h2 {
   margin-top: 0;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #2271b1;
+  color: #1d2327;
+  font-size: 1.3em;
+  font-weight: 600;
 }
 
 .pr-toggle {
@@ -22,7 +39,8 @@
   display: inline-block;
   width: 50px;
   height: 24px;
-  margin-right: 10px;
+  margin-right: 12px;
+  vertical-align: middle;
 }
 
 .pr-toggle input {
@@ -39,7 +57,7 @@
   right: 0;
   bottom: 0;
   background-color: #ccc;
-  transition: 0.4s;
+  transition: background-color 0.3s ease;
   border-radius: 24px;
 }
 
@@ -51,8 +69,9 @@
   left: 3px;
   bottom: 3px;
   background-color: white;
-  transition: 0.4s;
+  transition: transform 0.3s ease;
   border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .pr-toggle input:checked + .pr-toggle-slider {
@@ -70,22 +89,222 @@
 
 .pr-toggle-label {
   vertical-align: middle;
+  color: #1d2327;
+  font-weight: 500;
 }
 
 .pr-select {
   width: 100%;
   max-width: 500px;
   height: 150px;
+  padding: 8px;
+  border: 1px solid #ccd0d4;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.pr-select:focus {
+  outline: none;
+  border-color: #2271b1;
+  box-shadow: 0 0 0 1px #2271b1;
+}
+
+/* Form table styling */
+.pr-card .form-table {
+  width: 100%;
+  margin: 0;
+}
+
+.pr-card .form-table th {
+  padding: 15px 10px;
+  text-align: left;
+  vertical-align: top;
+  color: #1d2327;
+  font-weight: 600;
+  width: 25%;
+}
+
+.pr-card .form-table td {
+  padding: 15px 10px;
+  vertical-align: top;
+}
+
+.pr-card .form-table tr {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.pr-card .form-table tr:last-child {
+  border-bottom: none;
+}
+
+.pr-card input[type="number"],
+.pr-card input[type="text"],
+.pr-card input[type="email"] {
+  padding: 8px 12px;
+  border: 1px solid #ccd0d4;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.pr-card input[type="number"]:focus,
+.pr-card input[type="text"]:focus,
+.pr-card input[type="email"]:focus {
+  outline: none;
+  border-color: #2271b1;
+  box-shadow: 0 0 0 1px #2271b1;
+}
+
+.pr-card .description {
+  display: block;
+  margin-top: 8px;
+  color: #666;
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Button styling */
+.button {
+  display: inline-block;
+  padding: 8px 16px;
+  margin-top: 5px;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.button-primary {
+  background-color: #2271b1;
+  color: #fff;
+  border-color: #2271b1;
+}
+
+.button-primary:hover {
+  background-color: #1d5a8f;
+  border-color: #1d5a8f;
+}
+
+.button-secondary {
+  background-color: #f0f0f0;
+  color: #1d2327;
+  border-color: #ccc;
+}
+
+.button-secondary:hover {
+  background-color: #e8e8e8;
+  border-color: #999;
+}
+
+/* Users table styling */
+.pr-users-wrap {
+  max-width: 1200px;
+}
+
+.pr-users-wrap h1 {
+  color: #1d2327;
+  margin-bottom: 30px;
+  font-size: 2.5em;
+  font-weight: 600;
 }
 
 .pr-users-wrap table {
   margin-top: 20px;
+  width: 100%;
+  border-collapse: collapse;
 }
 
+.pr-users-wrap table thead {
+  background-color: #f9f9f9;
+  border-bottom: 2px solid #2271b1;
+}
+
+.pr-users-wrap table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #1d2327;
+}
+
+.pr-users-wrap table td {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.pr-users-wrap table tbody tr:hover {
+  background-color: #f9f9f9;
+  transition: background-color 0.15s ease;
+}
+
+.pr-users-wrap table tbody tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+/* Purchase option styling */
 .pr-purchase-option {
   margin: 15px 0;
-  padding: 10px;
-  background: #f9f9f9;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 15px;
+  background: linear-gradient(135deg, #f9fafb 0%, #f5f7fa 100%);
+  border: 2px solid #e0e6ed;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.pr-purchase-option:hover {
+  border-color: #2271b1;
+  box-shadow: 0 2px 8px rgba(34, 113, 177, 0.1);
+}
+
+.pr-purchase-option label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: #1d2327;
+  font-weight: 500;
+}
+
+.pr-purchase-option input[type="checkbox"] {
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .pr-card {
+    padding: 16px;
+  }
+
+  .pr-card .form-table th {
+    width: 100%;
+    display: block;
+    margin-bottom: 5px;
+    padding: 10px 0;
+  }
+
+  .pr-card .form-table td {
+    display: block;
+    padding: 10px 0;
+  }
+
+  .pr-card .form-table tr {
+    display: block;
+    margin-bottom: 15px;
+    border: none;
+  }
+
+  .pr-select {
+    max-width: 100%;
+    height: 120px;
+  }
+
+  .pr-users-wrap table {
+    font-size: 12px;
+  }
+
+  .pr-users-wrap table th,
+  .pr-users-wrap table td {
+    padding: 8px;
+  }
 }

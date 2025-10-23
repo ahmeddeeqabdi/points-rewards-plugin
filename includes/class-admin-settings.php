@@ -155,7 +155,7 @@ class PR_Admin_Settings {
         
         ?>
         <div class="wrap pr-settings-wrap">
-            <h1>Ahmed's Pointsystem Settings</h1>
+            <h1>⭐ Ahmed's Pointsystem Settings</h1>
             
             <form method="post" action="options.php">
                 <?php 
@@ -163,11 +163,11 @@ class PR_Admin_Settings {
                 ?>
                 
                 <div class="pr-card">
-                    <h2>Points Conversion</h2>
+                    <h2>💱 Points Conversion Rate</h2>
                     <table class="form-table">
                         <tr>
                             <th scope="row">
-                                <label for="pr_conversion_rate">Points per Kr.</label>
+                                <label for="pr_conversion_rate">Points Per Kroner</label>
                             </th>
                             <td>
                                 <input type="number" 
@@ -176,9 +176,10 @@ class PR_Admin_Settings {
                                        value="<?php echo esc_attr($conversion_rate); ?>" 
                                        step="0.01" 
                                        min="0.01" 
-                                       class="regular-text" />
+                                       class="regular-text" 
+                                       placeholder="1.00" />
                                 <p class="description">
-                                    How many Kr. equals 1 point (e.g., 1 = 1 point per Kr.)
+                                    Set the conversion rate. For example: 1 = 1 point per Kr., 2 = 1 point per 2 Kr.</p>
                                 </p>
                             </td>
                         </tr>
@@ -186,11 +187,11 @@ class PR_Admin_Settings {
                 </div>
 
                 <div class="pr-card">
-                    <h2>Registration Bonus</h2>
+                    <h2>🎁 Registration Bonus</h2>
                     <table class="form-table">
                         <tr>
                             <th scope="row">
-                                <label for="pr_registration_points">Initial Registration Points</label>
+                                <label for="pr_registration_points">Initial Welcome Bonus</label>
                             </th>
                             <td>
                                 <input type="number" 
@@ -199,9 +200,10 @@ class PR_Admin_Settings {
                                        value="<?php echo esc_attr($registration_points); ?>" 
                                        min="0" 
                                        step="1"
-                                       class="regular-text" />
+                                       class="regular-text" 
+                                       placeholder="10" />
                                 <p class="description">
-                                    Points awarded when a new user registers
+                                    Free points awarded to every user. This bonus is applied dynamically to all users.
                                 </p>
                             </td>
                         </tr>
@@ -233,11 +235,11 @@ class PR_Admin_Settings {
                 </div>
 
                 <div class="pr-card">
-                    <h2>Product Purchase with Points</h2>
+                    <h2>🛍️ Product Purchase with Points</h2>
                     <table class="form-table">
                         <tr>
                             <th scope="row">
-                                <label for="pr_enable_purchase">Enable Purchase with Points</label>
+                                <label for="pr_enable_purchase">Enable Checkout with Points</label>
                             </th>
                             <td>
                                 <label class="pr-toggle">
@@ -248,8 +250,9 @@ class PR_Admin_Settings {
                                            <?php checked($enable_purchase, 'yes'); ?> />
                                     <span class="pr-toggle-slider"></span>
                                 </label>
+                                <span class="pr-toggle-label">Allow customers to pay with points</span>
                                 <p class="description">
-                                    Allow customers to purchase products using points
+                                    Let customers purchase products using their available points
                                 </p>
                             </td>
                         </tr>
