@@ -52,19 +52,37 @@ class PR_Points_Manager {
     public function add_points($user_id, $points) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'user_points';
-        
-        $result = $wpdb->query(
+
+        if ($points <= 0) {
+            return; // No points to add
+        }
+
+        // First, try to update existing row
+        $updated = $wpdb->query(
             $wpdb->prepare(
-                "INSERT INTO $table_name (user_id, points, redeemed_points) 
-                 VALUES (%d, %d, 0) 
-                 ON DUPLICATE KEY UPDATE points = points + VALUES(points)",
-                $user_id,
-                $points
+                "UPDATE $table_name SET points = points + %d WHERE user_id = %d",
+                $points,
+                $user_id
             )
         );
-        
-        if ($result === false) {
-            error_log("Points & Rewards: Failed to add points for user $user_id: " . $wpdb->last_error);
+
+        // If no row was updated (user doesn't exist yet), insert new row
+        if ($updated === 0) {
+            $result = $wpdb->insert(
+                $table_name,
+                array(
+                    'user_id' => $user_id,
+                    'points' => $points,
+                    'redeemed_points' => 0
+                ),
+                array('%d', '%d', '%d')
+            );
+
+            if ($result === false) {
+                error_log("Points & Rewards: Failed to insert points for user $user_id: " . $wpdb->last_error);
+            }
+        } elseif ($updated === false) {
+            error_log("Points & Rewards: Failed to update points for user $user_id: " . $wpdb->last_error);
         }
     }
 

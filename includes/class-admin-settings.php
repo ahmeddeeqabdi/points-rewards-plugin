@@ -5,6 +5,7 @@ class PR_Admin_Settings {
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
+        add_action('admin_init', array($this, 'handle_admin_actions'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('update_option_pr_conversion_rate', array($this, 'recalculate_points_on_conversion_rate_change'), 10, 2);
         add_action('update_option_pr_registration_points', array($this, 'cleanup_on_settings_change'), 10, 2);
@@ -100,6 +101,18 @@ class PR_Admin_Settings {
         <div class="wrap pr-settings-wrap">
             <h1>Ahmed's Pointsystem Settings</h1>
             
+            <?php if (isset($_GET['awarded'])) : ?>
+                <div class="notice notice-success is-dismissible">
+                    <p>Registration points have been successfully awarded to all existing users!</p>
+                </div>
+            <?php endif; ?>
+
+            <?php if (isset($_GET['cleaned'])) : ?>
+                <div class="notice notice-success is-dismissible">
+                    <p>Duplicate user entries have been successfully cleaned up!</p>
+                </div>
+            <?php endif; ?>
+            
             <form method="post" action="options.php">
                 <?php 
                 settings_fields('pr_settings');
@@ -144,6 +157,24 @@ class PR_Admin_Settings {
                                        class="regular-text" />
                                 <p class="description">
                                     Points awarded when a new user registers
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label>Award to Existing Users</label>
+                            </th>
+                            <td>
+                                <form method="post" action="" style="display:inline;">
+                                    <?php wp_nonce_field('pr_award_existing_nonce'); ?>
+                                    <input type="hidden" name="pr_award_existing_points" value="1" />
+                                    <button type="submit" class="button button-secondary" 
+                                            onclick="return confirm('This will award <?php echo esc_attr($registration_points); ?> points to all existing users. Continue?');">
+                                        Award <?php echo esc_attr($registration_points); ?> Points to All Users
+                                    </button>
+                                </form>
+                                <p class="description">
+                                    Award registration bonus points to all existing users (one-time action)
                                 </p>
                             </td>
                         </tr>
@@ -221,6 +252,32 @@ class PR_Admin_Settings {
                             </td>
                         </tr>
                     </table>
+                                </div>
+
+                <div class="pr-card">
+                    <h2>Database Maintenance</h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <label>Clean Up Duplicate Users</label>
+                            </th>
+                            <td>
+                                <form method="post" action="" style="display:inline;">
+                                    <?php wp_nonce_field('pr_cleanup_nonce'); ?>
+                                    <input type="hidden" name="pr_cleanup_duplicates" value="1" />
+                                    <button type="submit" class="button button-secondary" 
+                                            onclick="return confirm('This will merge duplicate user entries and remove duplicates. Continue?');">
+                                        Clean Up Duplicates
+                                    </button>
+                                </form>
+                                <p class="description">
+                                    Merge duplicate user entries in the points table (safe operation)
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
                 <?php submit_button(); ?>
             </form>
         </div>
@@ -289,6 +346,66 @@ class PR_Admin_Settings {
             </div>
         </div>
         <?php
+    }
+
+    public function handle_admin_actions() {
+        if (isset($_POST['pr_award_existing_points']) && check_admin_referer('pr_award_existing_nonce')) {
+            if (current_user_can('manage_options')) {
+                $this->award_registration_points_to_existing_users();
+                wp_redirect(admin_url('admin.php?page=ahmeds-pointsystem&awarded=1'));
+                exit;
+            }
+        }
+
+        if (isset($_POST['pr_cleanup_duplicates']) && check_admin_referer('pr_cleanup_nonce')) {
+            if (current_user_can('manage_options')) {
+                $this->cleanup_duplicate_users();
+                wp_redirect(admin_url('admin.php?page=ahmeds-pointsystem&cleaned=1'));
+                exit;
+            }
+        }
+    }
+
+    public function award_registration_points_to_existing_users() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'user_points';
+        $registration_points = get_option('pr_registration_points', 0);
+
+        if ($registration_points <= 0) {
+            return; // No points to award
+        }
+
+        // Get all users who don't have points yet
+        $users_without_points = $wpdb->get_results("
+            SELECT u.ID as user_id
+            FROM {$wpdb->users} u
+            LEFT JOIN $table_name up ON u.ID = up.user_id
+            WHERE up.user_id IS NULL
+        ");
+
+        if (empty($users_without_points)) {
+            return; // All users already have points
+        }
+
+        // Insert points for users who don't have them
+        $values = array();
+        $placeholders = array();
+
+        foreach ($users_without_points as $user) {
+            $values[] = $user->user_id;
+            $values[] = $registration_points;
+            $values[] = 0; // redeemed_points
+            $placeholders[] = '(%d, %d, %d)';
+        }
+
+        if (!empty($values)) {
+            $query = "INSERT INTO $table_name (user_id, points, redeemed_points) VALUES " . implode(', ', $placeholders);
+            $result = $wpdb->query($wpdb->prepare($query, $values));
+
+            if ($result === false) {
+                error_log("Points & Rewards: Failed to award registration points to existing users: " . $wpdb->last_error);
+            }
+        }
     }
 
     public function recalculate_points_on_conversion_rate_change($old_value, $new_value) {

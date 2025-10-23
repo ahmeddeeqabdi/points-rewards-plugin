@@ -69,8 +69,7 @@ class Points_Rewards_Plugin {
         foreach ($user_ids as $user_id) {
             $wpdb->query(
                 $wpdb->prepare(
-                    "INSERT INTO $table_name (user_id, points, redeemed_points) VALUES (%d, 0, 0)
-                    ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)",
+                    "INSERT IGNORE INTO $table_name (user_id, points, redeemed_points) VALUES (%d, 0, 0)",
                     $user_id
                 )
             );
@@ -106,15 +105,23 @@ class Points_Rewards_Plugin {
 
                 $points = (int) floor($order_total / $conversion_rate);
                 if ($points > 0) {
-                    $result = $wpdb->query(
+                    // First ensure user has a row
+                    $wpdb->query(
                         $wpdb->prepare(
-                            "INSERT INTO $table_name (user_id, points, redeemed_points) VALUES (%d, %d, 0)
-                            ON DUPLICATE KEY UPDATE points = points + VALUES(points)",
-                            $user_id,
-                            $points
+                            "INSERT IGNORE INTO $table_name (user_id, points, redeemed_points) VALUES (%d, 0, 0)",
+                            $user_id
                         )
                     );
-                    
+
+                    // Then update points
+                    $result = $wpdb->query(
+                        $wpdb->prepare(
+                            "UPDATE $table_name SET points = points + %d WHERE user_id = %d",
+                            $points,
+                            $user_id
+                        )
+                    );
+
                     if ($result === false) {
                         error_log("Points & Rewards: Failed to backfill points for order $order_id, user $user_id: " . $wpdb->last_error);
                     }
