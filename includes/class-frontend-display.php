@@ -50,7 +50,7 @@ class PR_Frontend_Display {
             FROM {$wpdb->posts} p
             INNER JOIN {$wpdb->postmeta} pm_customer ON p.ID = pm_customer.post_id AND pm_customer.meta_key = '_customer_user' AND pm_customer.meta_value = %d
             INNER JOIN {$wpdb->postmeta} pm_total ON p.ID = pm_total.post_id AND pm_total.meta_key = '_order_total'
-            WHERE p.post_type = 'shop_order' AND p.post_status = 'wc-completed'
+            WHERE p.post_type = 'shop_order' AND p.post_status = 'wc-completed' AND p.post_date >= '2025-03-11'
         ";
         
         // If category restriction is enabled, only count from allowed categories

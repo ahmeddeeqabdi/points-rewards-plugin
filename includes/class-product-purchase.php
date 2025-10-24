@@ -53,7 +53,20 @@ class PR_Product_Purchase {
         }
         
         $allowed_categories = get_option('pr_allowed_categories', array());
+        
+        // If no categories are selected, allow all products
+        if (empty($allowed_categories)) {
+            return true;
+        }
+        
         $product_categories = wp_get_post_terms($product->get_id(), 'product_cat', array('fields' => 'ids'));
+        
+        // DEBUG: Log the values
+        error_log('DEBUG PR_Product_Purchase::can_purchase_with_points');
+        error_log('  Product ID: ' . $product->get_id());
+        error_log('  Product Categories: ' . json_encode($product_categories));
+        error_log('  Allowed Categories: ' . json_encode($allowed_categories));
+        error_log('  Intersection: ' . json_encode(array_intersect($product_categories, (array)$allowed_categories)));
         
         return !empty(array_intersect($product_categories, (array)$allowed_categories));
     }

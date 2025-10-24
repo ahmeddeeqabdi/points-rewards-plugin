@@ -160,6 +160,15 @@ class PR_Admin_Settings {
         <div class="wrap pr-settings-wrap">
             <h1>⭐ Ahmed's Pointsystem Settings</h1>
             
+            <!-- DEBUG: Show stored values -->
+            <?php if (current_user_can('manage_options')) { ?>
+                <div style="background: #f1f1f1; padding: 10px; margin: 10px 0; border-left: 4px solid #0073aa;">
+                    <strong>DEBUG INFO:</strong><br>
+                    pr_allowed_categories value: <code><?php echo esc_html(json_encode(get_option('pr_allowed_categories', array()))); ?></code><br>
+                    pr_restrict_categories value: <code><?php echo esc_html(get_option('pr_restrict_categories', 'no')); ?></code>
+                </div>
+            <?php } ?>
+            
             <form method="post" action="options.php">
                 <?php 
                 settings_fields('pr_settings');
@@ -266,6 +275,8 @@ class PR_Admin_Settings {
                                 ));
                                 
                                 if (!empty($categories)) {
+                                    // Hidden field to ensure the field is always submitted
+                                    echo '<input type="hidden" name="pr_allowed_categories" value="" />';
                                     echo '<select name="pr_allowed_categories[]" 
                                                   id="pr_allowed_categories" 
                                                   multiple 
@@ -338,6 +349,7 @@ class PR_Admin_Settings {
             
             // Get order totals for these specific users
             // WooCommerce stores customer user ID in _customer_user postmeta
+            // Only count orders from March 11, 2025 onwards
             $spent_query = $wpdb->prepare("
                 SELECT 
                     pm_customer.meta_value as user_id,
@@ -347,6 +359,7 @@ class PR_Admin_Settings {
                 INNER JOIN {$wpdb->postmeta} pm_total ON p.ID = pm_total.post_id AND pm_total.meta_key = '_order_total'
                 WHERE p.post_type = 'shop_order' 
                     AND p.post_status = 'wc-completed'
+                    AND p.post_date >= '2025-03-11'
                     AND pm_customer.meta_value IN ($placeholders)
                 GROUP BY pm_customer.meta_value
             ", ...$user_ids);
