@@ -263,8 +263,8 @@ class PR_Guest_Recovery {
                                                             <p style="margin: 0 0 20px 0; font-size: 16px; color: #333; font-family: Helvetica, Arial, sans-serif; line-height: 1.6;"><strong>Som medlem får du:</strong></p>
                                                             <ul style="margin: 0 0 20px 0; padding-left: 20px; font-size: 16px; color: #333; font-family: Helvetica, Arial, sans-serif;">
                                                                 <li style="margin-bottom: 8px;">En velkomst bonus på 10 point</li>
-                                                                <li style="margin-bottom: 8px;">Point på hvert køb - som du kan bruge til rabatter</li>
-                                                                <li style="margin-bottom: 8px;">Muligheden for at få gratis prøvepakker</li>
+                                                                <li style="margin-bottom: 8px;">Point fra hvert køb</li>
+                                                                <li style="margin-bottom: 8px;">Prøv nye produkter – betalt med dine point.</li>
                                                             </ul>
 
                                                             <p style="margin: 0 0 20px 0; font-size: 16px; color: #333; font-family: Helvetica, Arial, sans-serif; line-height: 1.6;"><strong>Og det bedste er - du starter allerede med point fra dine tidligere køb!</strong></p>
