@@ -86,6 +86,13 @@ class PR_Guest_Recovery {
     }
 
     public function send_invitation_email($email, $guest_total_spent = null) {
+        // Check if we've already sent an invite to this email recently (within last hour)
+        $last_invite_timestamp = get_option('pr_guest_invited_' . sanitize_email($email));
+        if ($last_invite_timestamp && (time() - $last_invite_timestamp) < 3600) {
+            error_log("Points Rewards: Skipped duplicate invite to $email - sent less than 1 hour ago");
+            return false;
+        }
+
         if ($guest_total_spent === null) {
             $guest_total_spent = $this->get_guest_spending_for_email($email);
         }
@@ -161,11 +168,13 @@ class PR_Guest_Recovery {
                                                                     </tr>
                                                                 </table>
 
+                                                                <p style="margin: 24px 0 16px 0; padding: 16px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;"><strong>⚠️ Vigtig bemærkning:</strong> Du skal tilmelde dig med <strong>denne e-mailadresse</strong> for at modtage dine point fra tidligere køb. Hvis du bruger en anden e-mailadresse, vil systemet ikke kunne genkende dine historiske køb.</p>
+
                                                                 <p style="margin: 24px 0 32px 0; text-align: center;">
                                                                     <a href="' . esc_url($register_url) . '" style="display: inline-block; background-color: #0f2846; color: #fff; padding: 14px 32px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 16px;">Tilmeld dig nu og få dine point</a>
                                                                 </p>
 
-                                                                <p style="margin: 0 0 16px 0;">Tak fordi du er en værdsat kunde!</p>
+                                                                <p style="margin: 0 0 16px 0;">Tak for at handle hos os.</p>
 
                                                                 <p style="margin: 0 0 0 0;">
                                                                     Venlig hilsen,<br>
@@ -194,6 +203,9 @@ class PR_Guest_Recovery {
 
         if ($sent) {
             update_option('pr_guest_invited_' . sanitize_email($email), time());
+        } else {
+            // Log failed email attempt for debugging
+            error_log("Points Rewards: Failed to send guest recovery email to $email");
         }
 
         return $sent;
@@ -275,11 +287,13 @@ class PR_Guest_Recovery {
                                                                 </tr>
                                                             </table>
 
+                                                            <p style="margin: 24px 0 16px 0; padding: 16px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;"><strong>⚠️ Vigtig bemærkning:</strong> Du skal tilmelde dig med <strong>denne e-mailadresse</strong> for at modtage dine point fra tidligere køb. Hvis du bruger en anden e-mailadresse, vil systemet ikke kunne genkende dine historiske køb.</p>
+
                                                             <p style="margin: 24px 0 32px 0; text-align: center;">
                                                                 <a href="' . esc_url($register_url) . '" style="display: inline-block; background-color: #0f2846; color: #fff; padding: 14px 32px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 16px;">Tilmeld dig nu og få dine point</a>
                                                             </p>
 
-                                                            <p style="margin: 0 0 16px 0;">Tak fordi du er en værdsat kunde!</p>
+                                                            <p style="margin: 0 0 16px 0;">Tak for at handle hos os.</p>
 
                                                             <p style="margin: 0 0 0 0;">
                                                                 Venlig hilsen,<br>
@@ -303,7 +317,14 @@ class PR_Guest_Recovery {
 
         $headers = array('Content-Type: text/html; charset=UTF-8');
         
-        return wp_mail($email, $subject, $html, $headers);
+        $sent = wp_mail($email, $subject, $html, $headers);
+        
+        if (!$sent) {
+            // Log failed email attempt for debugging
+            error_log("Points Rewards: Failed to send test email to $email");
+        }
+        
+        return $sent;
     }
 
     public function handle_guest_recovery_actions() {
