@@ -1,3 +1,28 @@
+/* Emoji rendering fix: Force emoji font for all elements containing emoji */
+.pr-settings-wrap,
+.pr-guest-recovery-wrap {
+  /* Use system emoji fonts to ensure consistent rendering */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Prevent emoji rendering delays */
+  -webkit-font-feature-settings: "cv11", "cv12";
+  font-feature-settings: "cv11", "cv12";
+  /* Ensure font is not substituted incorrectly */
+  -webkit-text-size-adjust: 100%;
+}
+
+.pr-settings-wrap h1,
+.pr-settings-wrap h2,
+.pr-settings-wrap h3,
+.pr-settings-wrap button,
+.pr-settings-wrap .button,
+.pr-guest-recovery-wrap h1,
+.pr-guest-recovery-wrap h2,
+.pr-guest-recovery-wrap button,
+.pr-guest-recovery-wrap .button {
+  /* Force emoji to use native emoji font, not text representation */
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
 .pr-settings-wrap {
   max-width: 1200px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;

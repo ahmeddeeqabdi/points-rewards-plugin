@@ -442,12 +442,12 @@ class PR_Guest_Recovery {
 
         ?>
         <div class="wrap pr-guest-recovery-wrap">
-            <h1>👥 Guest Recovery - Convert Guests to Members</h1>
+            <h1>Guest Recovery - Convert Guests to Members</h1>
             <p>These are customers who made purchases as guests before March 11, 2025. Send them invitation emails to sign up and claim their points!</p>
 
             <!-- Test Email Section -->
             <div class="pr-card">
-                <h2>📧 Test Email Preview</h2>
+                <h2>Test Email Preview</h2>
                 <p>Send a test email to yourself to preview the guest invitation before deployment:</p>
                 <form method="post" action="" style="display: flex; gap: 10px; align-items: flex-end;">
                     <?php wp_nonce_field('pr_guest_recovery_nonce'); ?>
@@ -496,7 +496,7 @@ class PR_Guest_Recovery {
                                                 <input type="hidden" name="guest_email" value="<?php echo esc_attr($guest->email); ?>" />
                                                 <button type="submit" class="button button-primary button-small"
                                                         onclick="return confirm('Send invitation to <?php echo esc_attr($guest->email); ?>?');">
-                                                    <?php echo $already_invited ? '📧 Resend' : '✉️ Send Invite'; ?>
+                                                    <?php echo $already_invited ? 'Resend' : 'Send Invite'; ?>
                                                 </button>
                                             </form>
 
@@ -504,7 +504,7 @@ class PR_Guest_Recovery {
                                                     data-guest-email="<?php echo esc_attr($guest->email); ?>"
                                                     data-guest-points="<?php echo esc_attr($total_points); ?>"
                                                     data-guest-breakdown="<?php echo esc_attr($guest_points . ' + ' . $registration_bonus); ?>">
-                                                ⚙️ Points
+                                                Points
                                             </button>
                                         </div>
                                     </td>

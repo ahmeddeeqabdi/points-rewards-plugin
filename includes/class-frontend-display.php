@@ -42,9 +42,15 @@ class PR_Frontend_Display {
         $restrict_categories = get_option('pr_restrict_categories', 'no');
         $allowed_categories = get_option('pr_allowed_categories', array());
 
-        // Get total spent - only count from allowed categories if restriction is enabled
+        // Check if this user's points were manually set by admin
         global $wpdb;
-        
+        $table_name = $wpdb->prefix . 'user_points';
+        $points_manually_set = intval($wpdb->get_var($wpdb->prepare(
+            "SELECT points_manually_set FROM $table_name WHERE user_id = %d",
+            $user_id
+        )));
+
+        // Get total spent - only count from allowed categories if restriction is enabled
         $query = "
             SELECT SUM(CAST(pm_total.meta_value AS DECIMAL(10,2))) as total_spent
             FROM {$wpdb->posts} p
@@ -71,7 +77,15 @@ class PR_Frontend_Display {
         $total_spent_result = $wpdb->get_row($wpdb->prepare($query, $user_id));
         $total_spent = floatval($total_spent_result->total_spent ?? 0);
         $purchase_points = intval(floor($total_spent / $conversion_rate));
-        $total_points = $purchase_points + $registration_bonus;
+        
+        // If points were manually set, use the stored value
+        // Otherwise, recalculate from spending + registration bonus
+        if ($points_manually_set === 1) {
+            $total_points = intval($user_points->points);
+        } else {
+            $total_points = $purchase_points + $registration_bonus;
+        }
+        
         $available_points = $total_points - intval($user_points->redeemed_points);
 
         return array(
