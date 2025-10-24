@@ -97,7 +97,7 @@ class PR_Guest_Recovery {
 
         $site_name = get_bloginfo('name');
         $site_url = home_url();
-        $register_url = wp_registration_url();
+        $register_url = home_url('/my-account/#register');
         $logo_url = get_option('woocommerce_placeholder_image', '');
 
         $subject = "Deltag i vores belønningsprogram og få dine point! - $site_name";
@@ -165,9 +165,9 @@ class PR_Guest_Recovery {
                                                                     <a href="' . esc_url($register_url) . '" style="display: inline-block; background-color: #0f2846; color: #fff; padding: 14px 32px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 16px;">Tilmeld dig nu og få dine point</a>
                                                                 </p>
 
-                                                                <p style="margin: 0 0 16px 0; font-size: 14px; color: #999;">Tak fordi du er en værdsat kunde!</p>
+                                                                <p style="margin: 0 0 16px 0;">Tak fordi du er en værdsat kunde!</p>
 
-                                                                <p style="margin: 0 0 0 0; font-size: 14px; color: #999;">
+                                                                <p style="margin: 0 0 0 0;">
                                                                     Venlig hilsen,<br>
                                                                     <strong>' . esc_html($site_name) . '</strong>
                                                                 </p>
@@ -199,6 +199,113 @@ class PR_Guest_Recovery {
         return $sent;
     }
 
+    public function send_test_email($email) {
+        // Create sample data for test email
+        $registration_bonus = intval(get_option('pr_registration_points', 0));
+        $sample_guest_spending = 100; // Sample spending amount
+        $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
+        $sample_guest_points = intval(floor($sample_guest_spending / $conversion_rate));
+        
+        $site_name = get_bloginfo('name');
+        $site_url = home_url();
+        $register_url = home_url('/my-account/#register');
+        
+        $subject = "TESTEMIL - " . esc_html($site_name) . " - Deltag i vores belønningsprogram og få dine point!";
+
+        // Build HTML email with sample data
+        $html = '<!DOCTYPE html>
+<html lang="da-DK" style="height: 100%; position: relative;">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta content="width=device-width, initial-scale=1.0" name="viewport">
+        <title>' . esc_html($site_name) . '</title>
+    </head>
+    <body leftmargin="0" marginwidth="0" topmargin="0" marginheight="0" style="height: 100%; position: relative; background-color: #fff; margin: 0; padding: 0;">
+        <div id="wrapper" dir="ltr" style="background-color: #fff; margin: 0; padding: 70px 0 70px 0; width: 100%; -webkit-text-size-adjust: none;">
+            <table border="0" cellpadding="0" cellspacing="0" height="100%" width="100%">
+                <tr>
+                    <td align="center" valign="top">
+                        <table border="0" cellpadding="0" cellspacing="0" width="634" id="template_container" style="background-color: #fff; border-radius: 0px; box-shadow: 0 0px 0px 0px rgba(0,0,0,.1);">
+                            <tr>
+                                <td align="center" valign="top">
+                                    <!-- Header with Dark Background -->
+                                    <table id="template_header_image_container" style="width: 100%; background-color: #0f2846;" width="100%">
+                                        <tr>
+                                            <td align="center" valign="middle" style="text-align: center; padding-top: 20px; padding-bottom: 20px;">
+                                                <h2 style="margin: 0; color: #fff; font-family: Helvetica, Arial, sans-serif; font-size: 24px; font-weight: 600;">⭐ ' . esc_html($site_name) . '</h2>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- Main Content -->
+                                    <table border="0" cellpadding="0" cellspacing="0" width="100%" id="template_body">
+                                        <tr>
+                                            <td valign="top" style="background-color: #fff; padding-top: 0px; padding-bottom: 25px;">
+                                                <table border="0" cellpadding="20" cellspacing="0" width="100%">
+                                                    <tr>
+                                                        <td valign="top">
+                                                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #333; font-family: Helvetica, Arial, sans-serif; line-height: 1.6;">Hej!</p>
+
+                                                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #333; font-family: Helvetica, Arial, sans-serif; line-height: 1.6;">Vi har opdaget at du har foretaget køb på vores butik som gæst. Vi vil gerne tilbyde dig at blive medlem og få adgang til vores eksklusive belønningsprogram!</p>
+
+                                                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #333; font-family: Helvetica, Arial, sans-serif; line-height: 1.6;"><strong>Som medlem får du:</strong></p>
+                                                            <ul style="margin: 0 0 20px 0; padding-left: 20px; font-size: 16px; color: #333; font-family: Helvetica, Arial, sans-serif;">
+                                                                <li style="margin-bottom: 8px;">En velkomst bonus på 10 point</li>
+                                                                <li style="margin-bottom: 8px;">Point på hvert køb - som du kan bruge til rabatter</li>
+                                                                <li style="margin-bottom: 8px;">Muligheden for at få gratis prøvepakker</li>
+                                                            </ul>
+
+                                                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #333; font-family: Helvetica, Arial, sans-serif; line-height: 1.6;"><strong>Og det bedste er - du starter allerede med point fra dine tidligere køb!</strong></p>
+
+                                                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8f9fa; border-radius: 8px; padding: 20px;">
+                                                                <tr>
+                                                                    <td style="padding: 12px 0; border-bottom: 1px solid #e0e0e0;">
+                                                                        <span style="font-size: 18px; color: #000844; font-weight: 600;">✓ ' . esc_html($registration_bonus) . ' velkomstbonus point</span>
+                                                                    </td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td style="padding: 12px 0; border-bottom: 1px solid #e0e0e0;">
+                                                                        <span style="font-size: 18px; color: #000844; font-weight: 600;">✓ ' . esc_html($sample_guest_points) . ' point fra dine tidligere køb</span>
+                                                                    </td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td style="padding: 12px 0;">
+                                                                        <span style="font-size: 20px; color: #0f2846; font-weight: 700;">✓ I alt: ' . esc_html($registration_bonus + $sample_guest_points) . ' point som du kan bruge med det samme!</span>
+                                                                    </td>
+                                                                </tr>
+                                                            </table>
+
+                                                            <p style="margin: 24px 0 32px 0; text-align: center;">
+                                                                <a href="' . esc_url($register_url) . '" style="display: inline-block; background-color: #0f2846; color: #fff; padding: 14px 32px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 16px;">Tilmeld dig nu og få dine point</a>
+                                                            </p>
+
+                                                            <p style="margin: 0 0 16px 0;">Tak fordi du er en værdsat kunde!</p>
+
+                                                            <p style="margin: 0 0 0 0;">
+                                                                Venlig hilsen,<br>
+                                                                <strong>' . esc_html($site_name) . '</strong>
+                                                            </p>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </body>
+</html>';
+
+        $headers = array('Content-Type: text/html; charset=UTF-8');
+        
+        return wp_mail($email, $subject, $html, $headers);
+    }
+
     public function handle_guest_recovery_actions() {
         if (!isset($_POST['pr_guest_action'])) {
             return;
@@ -215,6 +322,23 @@ class PR_Guest_Recovery {
         }
 
         $action = sanitize_text_field($_POST['pr_guest_action']);
+
+        if ($action === 'send_test_email') {
+            $test_email = sanitize_email($_POST['test_email'] ?? '');
+
+            if (!is_email($test_email)) {
+                set_transient('pr_guest_notice_error', 'Invalid email address.', 30);
+            } else {
+                if ($this->send_test_email($test_email)) {
+                    set_transient('pr_guest_notice_success', "Test email sent to $test_email", 30);
+                } else {
+                    set_transient('pr_guest_notice_error', "Failed to send test email to $test_email", 30);
+                }
+            }
+
+            wp_safe_redirect(admin_url('admin.php?page=ahmeds-pointsystem-guest-recovery'));
+            exit;
+        }
 
         if ($action === 'send_invite') {
             $email = sanitize_email($_POST['guest_email'] ?? '');
@@ -262,6 +386,23 @@ class PR_Guest_Recovery {
         <div class="wrap pr-guest-recovery-wrap">
             <h1>👥 Guest Recovery - Convert Guests to Members</h1>
             <p>These are customers who made purchases as guests before March 11, 2025. Send them invitation emails to sign up and claim their points!</p>
+
+            <!-- Test Email Section -->
+            <div class="pr-card">
+                <h2>📧 Test Email Preview</h2>
+                <p>Send a test email to yourself to preview the guest invitation before deployment:</p>
+                <form method="post" action="" style="display: flex; gap: 10px; align-items: flex-end;">
+                    <?php wp_nonce_field('pr_guest_recovery_nonce'); ?>
+                    <input type="hidden" name="pr_guest_action" value="send_test_email" />
+                    <div style="flex: 1;">
+                        <label for="test_email" style="display: block; margin-bottom: 5px; font-weight: 600;">Email Address:</label>
+                        <input type="email" id="test_email" name="test_email" 
+                               value="<?php echo esc_attr(wp_get_current_user()->user_email); ?>" 
+                               class="regular-text" required />
+                    </div>
+                    <button type="submit" class="button button-primary">Send Test Email</button>
+                </form>
+            </div>
 
             <?php if (!empty($guests)) : ?>
                 <div class="pr-card">
