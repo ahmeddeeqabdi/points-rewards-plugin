@@ -28,6 +28,7 @@ require_once PR_PLUGIN_PATH . 'includes/class-admin-settings.php';
 require_once PR_PLUGIN_PATH . 'includes/class-product-purchase.php';
 require_once PR_PLUGIN_PATH . 'includes/class-frontend-display.php';
 require_once PR_PLUGIN_PATH . 'includes/class-guest-recovery.php';
+require_once PR_PLUGIN_PATH . 'includes/class-user-management.php';
 
 // Initialize plugin
 class Points_Rewards_Plugin {
@@ -46,6 +47,7 @@ class Points_Rewards_Plugin {
         new PR_Points_Manager();
         new PR_Product_Purchase();
         new PR_Frontend_Display();
+        new PR_User_Management();
 
         // Enqueue frontend CSS
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_styles'));
@@ -89,6 +91,8 @@ class Points_Rewards_Plugin {
             user_id bigint(20) NOT NULL,
             points bigint(20) NOT NULL DEFAULT 0,
             redeemed_points bigint(20) NOT NULL DEFAULT 0,
+            is_revoked tinyint(1) NOT NULL DEFAULT 0,
+            points_manually_set tinyint(1) NOT NULL DEFAULT 0,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
             UNIQUE KEY user_id (user_id)
@@ -96,6 +100,9 @@ class Points_Rewards_Plugin {
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
+
+        // Add missing columns for existing installations
+        $this->add_missing_columns();
 
         // Only run activation setup once
         if (get_option('pr_activated') === 'yes') {
@@ -120,6 +127,34 @@ class Points_Rewards_Plugin {
         // Schedule daily maintenance
         if (!wp_next_scheduled('pr_daily_maintenance')) {
             wp_schedule_event(time(), 'daily', 'pr_daily_maintenance');
+        }
+    }
+
+    /**
+     * Add missing columns to existing user_points table for backwards compatibility
+     */
+    private function add_missing_columns() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'user_points';
+
+        // Check if is_revoked column exists
+        $column_exists = $wpdb->get_results(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = '$table_name' AND COLUMN_NAME = 'is_revoked'"
+        );
+        
+        if (empty($column_exists)) {
+            $wpdb->query("ALTER TABLE $table_name ADD COLUMN is_revoked tinyint(1) NOT NULL DEFAULT 0");
+        }
+
+        // Check if points_manually_set column exists
+        $column_exists = $wpdb->get_results(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = '$table_name' AND COLUMN_NAME = 'points_manually_set'"
+        );
+        
+        if (empty($column_exists)) {
+            $wpdb->query("ALTER TABLE $table_name ADD COLUMN points_manually_set tinyint(1) NOT NULL DEFAULT 0");
         }
     }
 

@@ -319,6 +319,20 @@ class PR_Admin_Settings {
     }
 
     public function users_page() {
+        // Display notices
+        $success_message = get_transient('pr_user_notice_success');
+        $error_message = get_transient('pr_user_notice_error');
+
+        if ($success_message) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . wp_kses_post($success_message) . '</p></div>';
+            delete_transient('pr_user_notice_success');
+        }
+
+        if ($error_message) {
+            echo '<div class="notice notice-error is-dismissible"><p>' . esc_html($error_message) . '</p></div>';
+            delete_transient('pr_user_notice_error');
+        }
+
         global $wpdb;
         $table_name = $wpdb->prefix . 'user_points';
         
@@ -337,7 +351,8 @@ class PR_Admin_Settings {
                 u.display_name,
                 u.user_email,
                 up.points as points,
-                up.redeemed_points as redeemed_points
+                up.redeemed_points as redeemed_points,
+                COALESCE(up.points_manually_set, 0) as points_manually_set
             FROM {$wpdb->users} u
             INNER JOIN $table_name up ON u.ID = up.user_id
         ");
@@ -379,8 +394,15 @@ class PR_Admin_Settings {
                 // Calculate purchase-based points from spending
                 $purchase_points = intval(floor($result->total_spent / $conversion_rate));
                 
-                // Display total = purchase points + registration bonus
-                $result->total_points_display = $purchase_points + $registration_bonus;
+                // If points were manually set, show the stored value
+                // Otherwise, recalculate from spending + registration bonus
+                if (intval($result->points_manually_set) === 1) {
+                    $result->total_points_display = intval($result->points);
+                    $result->is_manual = true;
+                } else {
+                    $result->total_points_display = $purchase_points + $registration_bonus;
+                    $result->is_manual = false;
+                }
                 $result->purchase_points = $purchase_points;
             }
             
@@ -403,28 +425,133 @@ class PR_Admin_Settings {
                             <th>Total Spent</th>
                             <th>Points</th>
                             <th>Redeemed Points</th>
+                            <th>Status</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (!empty($results)) : ?>
-                            <?php foreach ($results as $row) : ?>
-                                <tr>
+                            <?php foreach ($results as $row) : 
+                                $user_management = new PR_User_Management();
+                                $is_revoked = $user_management->is_user_revoked($row->user_id);
+                            ?>
+                                <tr <?php echo $is_revoked ? 'style="background-color: #ffe0e0;"' : ''; ?>>
                                     <td><?php echo esc_html($row->display_name); ?></td>
                                     <td><?php echo esc_html($row->user_email); ?></td>
                                     <td><?php echo wc_price($row->total_spent); ?></td>
-                                    <td><strong><?php echo esc_html($row->total_points_display); ?></strong></td>
+                                    <td>
+                                        <strong><?php echo esc_html($row->total_points_display); ?></strong>
+                                        <?php if ($row->is_manual) : ?>
+                                            <span style="color: #ff6b00; font-size: 11px; margin-left: 5px;" title="Manually set by admin">✏️</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><?php echo esc_html($row->redeemed_points); ?></td>
+                                    <td>
+                                        <?php if ($is_revoked) : ?>
+                                            <span style="color: red; font-weight: bold;">🚫 Revoked</span>
+                                        <?php else : ?>
+                                            <span style="color: green;">✓ Active</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                            <!-- Set Points Button -->
+                                            <button type="button" class="button button-small pr-set-points-btn" 
+                                                    data-user-id="<?php echo esc_attr($row->user_id); ?>"
+                                                    data-user-name="<?php echo esc_attr($row->display_name); ?>"
+                                                    data-current-points="<?php echo esc_attr($row->total_points_display); ?>">
+                                                ⚙️ Set Points
+                                            </button>
+
+                                            <!-- Revoke/Restore Button -->
+                                            <?php if ($is_revoked) : ?>
+                                                <form method="post" action="" style="display:inline;">
+                                                    <?php wp_nonce_field('pr_user_management_nonce'); ?>
+                                                    <input type="hidden" name="pr_user_action" value="restore_access" />
+                                                    <input type="hidden" name="user_id" value="<?php echo esc_attr($row->user_id); ?>" />
+                                                    <button type="submit" class="button button-small pr-action-btn" onclick="return confirm('Restore rewards access for <?php echo esc_attr($row->display_name); ?>?');">
+                                                        ✓ Restore
+                                                    </button>
+                                                </form>
+                                            <?php else : ?>
+                                                <form method="post" action="" style="display:inline;">
+                                                    <?php wp_nonce_field('pr_user_management_nonce'); ?>
+                                                    <input type="hidden" name="pr_user_action" value="revoke_access" />
+                                                    <input type="hidden" name="user_id" value="<?php echo esc_attr($row->user_id); ?>" />
+                                                    <button type="submit" class="button button-small pr-action-btn button-link-delete" onclick="return confirm('Revoke rewards access for <?php echo esc_attr($row->display_name); ?>? They will no longer be able to use points.');
+                                                        ">
+                                                        🚫 Revoke
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else : ?>
                             <tr>
-                                <td colspan="5">No customers with completed orders yet.</td>
+                                <td colspan="7">No customers with completed orders yet.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
         </div>
+
+        <!-- Modal for Setting Points -->
+        <div id="pr-set-points-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
+            <div style="background:white; padding:30px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.3); width:90%; max-width:400px;">
+                <h2 style="margin-top:0;">Set Points for <span id="pr-modal-user-name"></span></h2>
+                <p>Current Points: <strong id="pr-modal-current-points"></strong></p>
+                
+                <form id="pr-set-points-form" method="post" action="">
+                    <?php wp_nonce_field('pr_user_management_nonce'); ?>
+                    <input type="hidden" name="pr_user_action" value="set_points" />
+                    <input type="hidden" name="user_id" id="pr-modal-user-id" value="" />
+                    
+                    <p>
+                        <label for="pr-modal-points" style="display:block; margin-bottom:8px; font-weight:600;">New Points Value:</label>
+                        <input type="number" id="pr-modal-points" name="points_value" min="0" value="" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" required />
+                    </p>
+                    
+                    <div style="display:flex; gap:10px; margin-top:20px;">
+                        <button type="submit" class="button button-primary">Update Points</button>
+                        <button type="button" class="button" onclick="document.getElementById('pr-set-points-modal').style.display='none';">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            document.querySelectorAll('.pr-set-points-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.getElementById('pr-modal-user-id').value = this.dataset.userId;
+                    document.getElementById('pr-modal-user-name').textContent = this.dataset.userName;
+                    document.getElementById('pr-modal-current-points').textContent = this.dataset.currentPoints;
+                    document.getElementById('pr-modal-points').value = this.dataset.currentPoints;
+                    document.getElementById('pr-set-points-modal').style.display = 'flex';
+                    document.getElementById('pr-modal-points').focus();
+                    document.getElementById('pr-modal-points').select();
+                });
+            });
+
+            // Close modal on outside click
+            document.getElementById('pr-set-points-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.style.display = 'none';
+                }
+            });
+        </script>
+
+        <style>
+            .pr-set-points-btn,
+            .pr-action-btn {
+                font-size: 12px !important;
+                padding: 4px 8px !important;
+                height: auto !important;
+                line-height: 1.5 !important;
+            }
+        </style>
         <?php
     }
 

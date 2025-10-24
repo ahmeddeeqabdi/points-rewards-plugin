@@ -68,20 +68,39 @@ class PR_Guest_Recovery {
         if (!$user) return;
 
         $email = $user->user_email;
-        $total_spent = $this->get_guest_spending_for_email($email);
+        
+        // Check if admin set an override points value for this email
+        $override_points = get_option('pr_guest_override_points_' . sanitize_key($email));
+        
+        if ($override_points !== false) {
+            // Use the admin-set override points
+            $points_to_award = intval($override_points);
+            delete_option('pr_guest_override_points_' . sanitize_key($email));
+            error_log("Points Rewards: Using admin override points ($points_to_award) for user signup: $email");
+        } else {
+            // Calculate from guest spending
+            $total_spent = $this->get_guest_spending_for_email($email);
 
-        if ($total_spent > 0) {
-            // Calculate points from pre-March 11 guest spending
-            $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
-            $guest_spending_points = intval(floor($total_spent / $conversion_rate));
+            if ($total_spent > 0) {
+                // Calculate points from pre-March 11 guest spending
+                $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
+                $guest_spending_points = intval(floor($total_spent / $conversion_rate));
+                $registration_bonus = intval(get_option('pr_registration_points', 0));
+                $points_to_award = $guest_spending_points + $registration_bonus;
+            } else {
+                // No guest spending found, just add registration bonus
+                $registration_bonus = intval(get_option('pr_registration_points', 0));
+                $points_to_award = $registration_bonus;
+            }
+        }
 
-            // Award the points
+        // Award the points
+        if ($points_to_award > 0) {
             $points_manager = new PR_Points_Manager();
-            $points_manager->add_points($user_id, $guest_spending_points);
+            $points_manager->add_points($user_id, $points_to_award);
 
             // Log this action
-            update_user_meta($user_id, 'pr_guest_spending_points_awarded', $guest_spending_points);
-            update_user_meta($user_id, 'pr_guest_spending_total', $total_spent);
+            update_user_meta($user_id, 'pr_guest_spending_points_awarded', $points_to_award);
         }
     }
 
@@ -263,8 +282,8 @@ class PR_Guest_Recovery {
                                                             <p style="margin: 0 0 20px 0; font-size: 16px; color: #333; font-family: Helvetica, Arial, sans-serif; line-height: 1.6;"><strong>Som medlem får du:</strong></p>
                                                             <ul style="margin: 0 0 20px 0; padding-left: 20px; font-size: 16px; color: #333; font-family: Helvetica, Arial, sans-serif;">
                                                                 <li style="margin-bottom: 8px;">En velkomst bonus på 10 point</li>
-                                                                <li style="margin-bottom: 8px;">Point fra hvert køb</li>
-                                                                <li style="margin-bottom: 8px;">Prøv nye produkter – betalt med dine point.</li>
+                                                                <li style="margin-bottom: 8px;">Point på hvert køb</li>
+                                                                <li style="margin-bottom: 8px;">Mulighed for at prøve nye produkter – betalt med dine point.</li>
                                                             </ul>
 
                                                             <p style="margin: 0 0 20px 0; font-size: 16px; color: #333; font-family: Helvetica, Arial, sans-serif; line-height: 1.6;"><strong>Og det bedste er - du starter allerede med point fra dine tidligere køb!</strong></p>
@@ -343,6 +362,24 @@ class PR_Guest_Recovery {
         }
 
         $action = sanitize_text_field($_POST['pr_guest_action']);
+
+        if ($action === 'set_guest_points') {
+            $guest_email = sanitize_email($_POST['guest_email'] ?? '');
+            $new_points = intval($_POST['points_value'] ?? 0);
+
+            if (!is_email($guest_email)) {
+                set_transient('pr_guest_notice_error', 'Invalid email address.', 30);
+            } elseif ($new_points < 0) {
+                set_transient('pr_guest_notice_error', 'Points cannot be negative.', 30);
+            } else {
+                set_transient('pr_guest_notice_success', sprintf('Points for %s will be set to %d when they sign up with this email.', esc_html($guest_email), $new_points), 30);
+                update_option('pr_guest_override_points_' . sanitize_key($guest_email), $new_points);
+                error_log("Points Rewards: Admin set override points for guest email $guest_email to $new_points");
+            }
+
+            wp_safe_redirect(admin_url('admin.php?page=ahmeds-pointsystem-guest-recovery'));
+            exit;
+        }
 
         if ($action === 'send_test_email') {
             $test_email = sanitize_email($_POST['test_email'] ?? '');
@@ -452,15 +489,24 @@ class PR_Guest_Recovery {
                                         <small>(<?php echo esc_html($guest_points); ?> from spending + <?php echo esc_html($registration_bonus); ?> welcome bonus)</small>
                                     </td>
                                     <td>
-                                        <form method="post" action="" style="display:inline;">
-                                            <?php wp_nonce_field('pr_guest_recovery_nonce'); ?>
-                                            <input type="hidden" name="pr_guest_action" value="send_invite" />
-                                            <input type="hidden" name="guest_email" value="<?php echo esc_attr($guest->email); ?>" />
-                                            <button type="submit" class="button button-primary" 
-                                                    onclick="return confirm('Send invitation to <?php echo esc_attr($guest->email); ?>?');">
-                                                <?php echo $already_invited ? '📧 Resend' : '✉️ Send Invite'; ?>
+                                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                            <form method="post" action="" style="display:inline;">
+                                                <?php wp_nonce_field('pr_guest_recovery_nonce'); ?>
+                                                <input type="hidden" name="pr_guest_action" value="send_invite" />
+                                                <input type="hidden" name="guest_email" value="<?php echo esc_attr($guest->email); ?>" />
+                                                <button type="submit" class="button button-primary button-small"
+                                                        onclick="return confirm('Send invitation to <?php echo esc_attr($guest->email); ?>?');">
+                                                    <?php echo $already_invited ? '📧 Resend' : '✉️ Send Invite'; ?>
+                                                </button>
+                                            </form>
+
+                                            <button type="button" class="button button-small pr-guest-set-points-btn" 
+                                                    data-guest-email="<?php echo esc_attr($guest->email); ?>"
+                                                    data-guest-points="<?php echo esc_attr($total_points); ?>"
+                                                    data-guest-breakdown="<?php echo esc_attr($guest_points . ' + ' . $registration_bonus); ?>">
+                                                ⚙️ Points
                                             </button>
-                                        </form>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -482,6 +528,60 @@ class PR_Guest_Recovery {
                 padding: 20px;
                 margin: 20px 0;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+        </style>
+
+        <!-- Modal for Setting Guest Points -->
+        <div id="pr-guest-set-points-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
+            <div style="background:white; padding:30px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.3); width:90%; max-width:400px;">
+                <h2 style="margin-top:0;">Adjust Points for <span id="pr-guest-modal-email"></span></h2>
+                <p>Current Points: <strong id="pr-guest-modal-current-points"></strong></p>
+                <p style="font-size:13px; color:#666;">Breakdown: <span id="pr-guest-modal-breakdown"></span></p>
+                
+                <form id="pr-guest-set-points-form" method="post" action="">
+                    <?php wp_nonce_field('pr_guest_recovery_nonce'); ?>
+                    <input type="hidden" name="pr_guest_action" value="set_guest_points" />
+                    <input type="hidden" name="guest_email" id="pr-guest-modal-email-input" value="" />
+                    
+                    <p>
+                        <label for="pr-guest-modal-points" style="display:block; margin-bottom:8px; font-weight:600;">New Points Value:</label>
+                        <input type="number" id="pr-guest-modal-points" name="points_value" min="0" value="" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" required />
+                    </p>
+                    
+                    <div style="display:flex; gap:10px; margin-top:20px;">
+                        <button type="submit" class="button button-primary">Update Points</button>
+                        <button type="button" class="button" onclick="document.getElementById('pr-guest-set-points-modal').style.display='none';">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            document.querySelectorAll('.pr-guest-set-points-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.getElementById('pr-guest-modal-email-input').value = this.dataset.guestEmail;
+                    document.getElementById('pr-guest-modal-email').textContent = this.dataset.guestEmail;
+                    document.getElementById('pr-guest-modal-current-points').textContent = this.dataset.guestPoints;
+                    document.getElementById('pr-guest-modal-breakdown').textContent = this.dataset.guestBreakdown;
+                    document.getElementById('pr-guest-modal-points').value = this.dataset.guestPoints;
+                    document.getElementById('pr-guest-set-points-modal').style.display = 'flex';
+                    document.getElementById('pr-guest-modal-points').focus();
+                    document.getElementById('pr-guest-modal-points').select();
+                });
+            });
+
+            // Close modal on outside click
+            document.getElementById('pr-guest-set-points-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.style.display = 'none';
+                }
+            });
+        </script>
+
+        <style>
+            .pr-guest-set-points-btn {
+                font-size: 12px !important;
+                padding: 4px 8px !important;
             }
         </style>
         <?php
