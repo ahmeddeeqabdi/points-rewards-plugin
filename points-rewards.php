@@ -27,6 +27,7 @@ require_once PR_PLUGIN_PATH . 'includes/class-points-manager.php';
 require_once PR_PLUGIN_PATH . 'includes/class-admin-settings.php';
 require_once PR_PLUGIN_PATH . 'includes/class-product-purchase.php';
 require_once PR_PLUGIN_PATH . 'includes/class-frontend-display.php';
+require_once PR_PLUGIN_PATH . 'includes/class-guest-recovery.php';
 
 // Initialize plugin
 class Points_Rewards_Plugin {

@@ -42,6 +42,15 @@ class PR_Admin_Settings {
             'ahmeds-pointsystem-users',
             array($this, 'users_page')
         );
+
+        add_submenu_page(
+            'ahmeds-pointsystem',
+            'Guest Recovery',
+            'Guest Recovery',
+            'manage_options',
+            'ahmeds-pointsystem-guest-recovery',
+            array('PR_Guest_Recovery', 'display_guest_recovery_page')
+        );
     }
 
     public function register_settings() {
@@ -159,15 +168,6 @@ class PR_Admin_Settings {
         ?>
         <div class="wrap pr-settings-wrap">
             <h1>⭐ Ahmed's Pointsystem Settings</h1>
-            
-            <!-- DEBUG: Show stored values -->
-            <?php if (current_user_can('manage_options')) { ?>
-                <div style="background: #f1f1f1; padding: 10px; margin: 10px 0; border-left: 4px solid #0073aa;">
-                    <strong>DEBUG INFO:</strong><br>
-                    pr_allowed_categories value: <code><?php echo esc_html(json_encode(get_option('pr_allowed_categories', array()))); ?></code><br>
-                    pr_restrict_categories value: <code><?php echo esc_html(get_option('pr_restrict_categories', 'no')); ?></code>
-                </div>
-            <?php } ?>
             
             <form method="post" action="options.php">
                 <?php 
@@ -329,7 +329,8 @@ class PR_Admin_Settings {
         $this->cleanup_duplicate_users();
         
         // Ultra-optimized query: Separate concerns for speed
-        // Step 1: Get all users with points (fast base query)
+        // Step 1: Get all signed-up users (everyone gets signup bonus)
+        // Show all registered users regardless of purchase history
         $results = $wpdb->get_results("
             SELECT 
                 u.ID as user_id,
