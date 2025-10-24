@@ -186,6 +186,4 @@ class PR_User_Management {
         exit;
     }
 }
-
-new PR_User_Management();
 ?>

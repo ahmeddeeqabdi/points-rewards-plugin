@@ -23,9 +23,11 @@ define('PR_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('PR_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Include required files
+require_once PR_PLUGIN_PATH . 'includes/class-conflict-detector.php';
 require_once PR_PLUGIN_PATH . 'includes/class-points-manager.php';
 require_once PR_PLUGIN_PATH . 'includes/class-admin-settings.php';
 require_once PR_PLUGIN_PATH . 'includes/class-product-purchase.php';
+require_once PR_PLUGIN_PATH . 'includes/class-product-points-cost.php';
 require_once PR_PLUGIN_PATH . 'includes/class-frontend-display.php';
 require_once PR_PLUGIN_PATH . 'includes/class-guest-recovery.php';
 require_once PR_PLUGIN_PATH . 'includes/class-user-management.php';
@@ -46,7 +48,9 @@ class Points_Rewards_Plugin {
         new PR_Admin_Settings();
         new PR_Points_Manager();
         new PR_Product_Purchase();
+        new PR_Product_Points_Cost();
         new PR_Frontend_Display();
+        new PR_Guest_Recovery();
         new PR_User_Management();
 
         // Enqueue frontend CSS
@@ -169,7 +173,28 @@ class Points_Rewards_Plugin {
             array(),
             '1.0.0'
         );
+        
+        // Enqueue frontend script for cart/checkout functionality
+        wp_enqueue_script(
+            'pr-frontend-script',
+            PR_PLUGIN_URL . 'assets/js/admin-script.js',
+            array('jquery'),
+            '1.0.0',
+            true
+        );
+        
+        // Localize script for AJAX
+        wp_localize_script('pr-frontend-script', 'pr_ajax', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('pr_points_payment_nonce')
+        ));
     }
 }
 
 new Points_Rewards_Plugin();
+
+// Run conflict detection on activation
+register_activation_hook(__FILE__, function() {
+    PR_Conflict_Detector::check_on_activation();
+    PR_Conflict_Detector::log_diagnostic_report();
+});

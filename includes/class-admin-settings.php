@@ -478,8 +478,7 @@ class PR_Admin_Settings {
                                                     <?php wp_nonce_field('pr_user_management_nonce'); ?>
                                                     <input type="hidden" name="pr_user_action" value="revoke_access" />
                                                     <input type="hidden" name="user_id" value="<?php echo esc_attr($row->user_id); ?>" />
-                                                    <button type="submit" class="button button-small pr-action-btn button-link-delete" onclick="return confirm('Revoke rewards access for <?php echo esc_attr($row->display_name); ?>? They will no longer be able to use points.');
-                                                        ">
+                                                    <button type="submit" class="button button-small pr-action-btn button-link-delete" onclick="return confirm('Revoke rewards access for <?php echo esc_attr($row->display_name); ?>? They will no longer be able to use points.');">
                                                         🚫 Revoke
                                                     </button>
                                                 </form>

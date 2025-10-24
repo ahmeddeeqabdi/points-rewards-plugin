@@ -86,3 +86,42 @@ jQuery(document).ready(function ($) {
     $(this).data("tooltip-shown", false);
   });
 });
+
+// Frontend cart/checkout points functionality
+function prTogglePointsPayment(usePoints) {
+  // For checkout page, trigger WooCommerce's update_checkout event
+  if (typeof wc_checkout_params !== 'undefined') {
+    jQuery.ajax({
+      url: pr_ajax.ajax_url,
+      type: 'POST',
+      data: {
+        action: 'pr_toggle_points_payment',
+        use_points: usePoints,
+        security: pr_ajax.nonce
+      },
+      success: function(response) {
+        if (response.success) {
+          // Trigger checkout update for checkout page
+          jQuery(document.body).trigger('update_checkout');
+        }
+      }
+    });
+  } else {
+    // For cart page, trigger cart update
+    jQuery.ajax({
+      url: pr_ajax.ajax_url,
+      type: 'POST',
+      data: {
+        action: 'pr_toggle_points_payment',
+        use_points: usePoints,
+        security: pr_ajax.nonce
+      },
+      success: function(response) {
+        if (response.success) {
+          // Refresh cart
+          jQuery(document.body).trigger('wc_update_cart');
+        }
+      }
+    });
+  }
+}
