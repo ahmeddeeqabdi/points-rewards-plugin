@@ -504,7 +504,7 @@ class PR_Guest_Recovery {
                                                     data-guest-email="<?php echo esc_attr($guest->email); ?>"
                                                     data-guest-points="<?php echo esc_attr($total_points); ?>"
                                                     data-guest-breakdown="<?php echo esc_attr($guest_points . ' + ' . $registration_bonus); ?>">
-                                                Points
+                                                ⚙️ Points
                                             </button>
                                         </div>
                                     </td>
