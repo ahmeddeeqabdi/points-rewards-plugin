@@ -96,25 +96,101 @@ class PR_Guest_Recovery {
         $total_points = $guest_spending_points + $registration_bonus;
 
         $site_name = get_bloginfo('name');
+        $site_url = home_url();
         $register_url = wp_registration_url();
+        $logo_url = get_option('woocommerce_placeholder_image', '');
 
         $subject = "Deltag i vores belønningsprogram og få dine point! - $site_name";
 
-        $message = "Hej,\n\n";
-        $message .= "Vi har set, at du har foretaget køb som gæst på $site_name.\n\n";
-        $message .= "Vi er begejstret for at invitere dig til at deltage i vores belønningsprogram!\n\n";
-        $message .= "Når du opretter en konto og tilmelder dig, modtager du:\n";
-        $message .= "• " . $registration_bonus . " velkomstbonus point\n";
-        $message .= "• " . $guest_spending_points . " point fra dine tidligere køb\n";
-        $message .= "• I alt: " . $total_points . " point som du kan bruge med det samme!\n\n";
-        $message .= "Klik her for at tilmelde dig og få dine point: " . $register_url . "\n\n";
-        $message .= "Tak fordi du er en værdsat kunde!\n\n";
-        $message .= "Venlig hilsen,\n";
-        $message .= $site_name;
+        // Build HTML email
+        $html = '<!DOCTYPE html>
+<html lang="da-DK" style="height: 100%; position: relative;">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta content="width=device-width, initial-scale=1.0" name="viewport">
+        <title>' . esc_html($site_name) . '</title>
+    </head>
+    <body leftmargin="0" marginwidth="0" topmargin="0" marginheight="0" style="height: 100%; position: relative; background-color: #fff; margin: 0; padding: 0;">
+        <div id="wrapper" dir="ltr" style="background-color: #fff; margin: 0; padding: 70px 0 70px 0; width: 100%; -webkit-text-size-adjust: none;">
+            <table border="0" cellpadding="0" cellspacing="0" height="100%" width="100%">
+                <tr>
+                    <td align="center" valign="top">
+                        <table border="0" cellpadding="0" cellspacing="0" width="634" id="template_container" style="background-color: #fff; border-radius: 0px; box-shadow: 0 0px 0px 0px rgba(0,0,0,.1);">
+                            <tr>
+                                <td align="center" valign="top">
+                                    <!-- Header with Dark Background -->
+                                    <table id="template_header_image_container" style="width: 100%; background-color: #0f2846;" width="100%">
+                                        <tr>
+                                            <td align="center" valign="middle" style="text-align: center; padding-top: 20px; padding-bottom: 20px;">
+                                                <h2 style="margin: 0; color: #fff; font-family: Helvetica, Arial, sans-serif; font-size: 24px; font-weight: 600;">⭐ ' . esc_html($site_name) . '</h2>
+                                            </td>
+                                        </tr>
+                                    </table>
 
-        $headers = array('Content-Type: text/plain; charset=UTF-8');
+                                    <!-- Main Content -->
+                                    <table border="0" cellpadding="0" cellspacing="0" width="100%" id="template_body">
+                                        <tr>
+                                            <td valign="top" style="background-color: #fff; padding-top: 0px; padding-bottom: 25px;">
+                                                <table border="0" cellpadding="20" cellspacing="0" width="100%">
+                                                    <tr>
+                                                        <td valign="top" style="padding: 48px 48px;">
+                                                            <div style="color: #7a7a7a; text-align: left; font-size: 16px; line-height: 26px; font-family: Helvetica, Arial, sans-serif; font-weight: 400;">
+                                                                <h1 style="margin: 0 0 20px 0; color: #000844; font-size: 27px; line-height: 1.4;">Hej!</h1>
 
-        $sent = wp_mail($email, $subject, $message, $headers);
+                                                                <p style="margin: 0 0 16px 0;">Vi har set, at du har foretaget køb som gæst på ' . esc_html($site_name) . '.</p>
+
+                                                                <p style="margin: 0 0 16px 0;">Vi er begejstret for at invitere dig til at deltage i vores belønningsprogram!</p>
+
+                                                                <p style="margin: 0 0 24px 0;"><strong>Når du opretter en konto og tilmelder dig, modtager du:</strong></p>
+
+                                                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8f9fa; border-radius: 8px; padding: 20px;">
+                                                                    <tr>
+                                                                        <td style="padding: 12px 0; border-bottom: 1px solid #e0e0e0;">
+                                                                            <span style="font-size: 18px; color: #000844; font-weight: 600;">✓ ' . esc_html($registration_bonus) . ' velkomstbonus point</span>
+                                                                        </td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td style="padding: 12px 0; border-bottom: 1px solid #e0e0e0;">
+                                                                            <span style="font-size: 18px; color: #000844; font-weight: 600;">✓ ' . esc_html($guest_spending_points) . ' point fra dine tidligere køb</span>
+                                                                        </td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td style="padding: 12px 0;">
+                                                                            <span style="font-size: 20px; color: #0f2846; font-weight: 700;">✓ I alt: ' . esc_html($total_points) . ' point som du kan bruge med det samme!</span>
+                                                                        </td>
+                                                                    </tr>
+                                                                </table>
+
+                                                                <p style="margin: 24px 0 32px 0; text-align: center;">
+                                                                    <a href="' . esc_url($register_url) . '" style="display: inline-block; background-color: #0f2846; color: #fff; padding: 14px 32px; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 16px;">Tilmeld dig nu og få dine point</a>
+                                                                </p>
+
+                                                                <p style="margin: 0 0 16px 0; font-size: 14px; color: #999;">Tak fordi du er en værdsat kunde!</p>
+
+                                                                <p style="margin: 0 0 0 0; font-size: 14px; color: #999;">
+                                                                    Venlig hilsen,<br>
+                                                                    <strong>' . esc_html($site_name) . '</strong>
+                                                                </p>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </body>
+</html>';
+
+        $headers = array('Content-Type: text/html; charset=UTF-8');
+
+        $sent = wp_mail($email, $subject, $html, $headers);
 
         if ($sent) {
             update_option('pr_guest_invited_' . sanitize_email($email), time());
