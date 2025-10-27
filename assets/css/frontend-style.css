@@ -358,7 +358,10 @@
 
 .pr-points-only-purchase {
   margin-top: 20px;
-  text-align: center;
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .pr-points-only-purchase .single_add_to_cart_button {
@@ -366,9 +369,16 @@
   border-color: #2271b1 !important;
   color: white !important;
   font-weight: 600 !important;
-  padding: 12px 24px !important;
+  padding: 12px 32px !important;
   border-radius: 6px !important;
   transition: all 0.2s ease !important;
+  height: 46px !important;
+  line-height: 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  flex-grow: 0 !important;
 }
 
 .pr-points-only-purchase .single_add_to_cart_button:hover {
@@ -379,7 +389,17 @@
 .pr-points-info {
   color: #666;
   font-size: 0.9em;
-  margin-top: 8px;
+  margin: 0 !important;
+  flex-grow: 1;
+}
+
+/* Align button with quantity selector in product form */
+.woocommerce div.product form.cart .single_add_to_cart_button[name="pr_purchase_with_points"] {
+  margin: 0 !important;
+}
+
+.woocommerce div.product form.cart .pr-points-info {
+  margin-left: 20px !important;
 }
 
 .pr-insufficient-points {
@@ -406,4 +426,57 @@
   color: #856404;
   font-size: 0.9em;
   font-style: italic;
+}
+
+/* Checkout Page - Points-Only Products */
+.woocommerce-checkout .pr-checkout-points-notice {
+  background: linear-gradient(135deg, #e7f3ff 0%, #f0f8ff 100%);
+  border-left: 4px solid #2271b1;
+  border-radius: 6px;
+  padding: 15px 20px;
+  margin-bottom: 25px;
+  color: #0c5aa0;
+  box-shadow: 0 2px 4px rgba(34, 113, 177, 0.1);
+}
+
+.pr-checkout-points-notice p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+/* Hide prices for points-only items at checkout, show points instead */
+.woocommerce-checkout table.shop_table td.product-total,
+.woocommerce-checkout table.shop_table td.product-price {
+  text-align: right;
+}
+
+/* Override price display for points-only products */
+.woocommerce-checkout .pr-points-product-price {
+  color: #27ae60;
+  font-weight: 700;
+  font-size: 1.15em;
+  display: inline-block;
+  padding: 2px 8px;
+  background: #e8f5e9;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+
+/* Cart item data - Payment Method indicator */
+.woocommerce-checkout .woocommerce-checkout-review-order-table dl {
+  margin: 8px 0;
+}
+
+.woocommerce-checkout .woocommerce-checkout-review-order-table dt {
+  font-weight: 600;
+  color: #1d2327;
+  margin-bottom: 4px;
+}
+
+.woocommerce-checkout .woocommerce-checkout-review-order-table dd {
+  margin: 0;
+  color: #27ae60;
+  font-weight: 600;
 }

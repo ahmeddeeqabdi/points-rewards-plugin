@@ -21,6 +21,27 @@ class PR_Product_Purchase {
         
         // Hide default add to cart button for points-only products
         add_filter('woocommerce_single_product_summary', array($this, 'hide_add_to_cart_for_points_only'), 9);
+        
+        // Hide payment gateways and show points message at checkout
+        add_action('woocommerce_review_order_before_payment', array($this, 'checkout_payment_methods'));
+        add_action('woocommerce_checkout_before_order_review', array($this, 'checkout_payment_methods_top'));
+        add_action('wp_footer', array($this, 'checkout_hide_payments_css'));
+        add_filter('woocommerce_available_payment_gateways', array($this, 'filter_payment_gateways'));
+        
+        // Display points instead of price for points-only products at checkout
+        add_filter('woocommerce_order_formatted_line_subtotal', array($this, 'format_checkout_line_subtotal'), 10, 3);
+        add_filter('woocommerce_cart_item_subtotal', array($this, 'format_cart_item_subtotal'), 99, 3);
+        add_filter('woocommerce_cart_item_price', array($this, 'format_cart_item_price'), 99, 3);
+        
+        // Additional filter for checkout review order table
+        add_filter('woocommerce_checkout_cart_item_quantity', array($this, 'format_checkout_item_quantity'), 10, 3);
+        
+        // WooCommerce Blocks support (block-based checkout)
+        add_filter('woocommerce_store_api_product_quantity_editable', array($this, 'blocks_product_quantity_editable'), 10, 2);
+        add_filter('woocommerce_store_api_cart_item_price_is_editable', array($this, 'blocks_item_price_editable'), 10, 2);
+        add_filter('woocommerce_store_api_product_price', array($this, 'blocks_product_price'), 999, 2);
+        add_filter('woocommerce_store_api_cart_item_product_price', array($this, 'blocks_cart_item_price'), 999, 2);
+        add_filter('woocommerce_store_api_cart_item', array($this, 'blocks_cart_item'), 999, 2);
     }
 
     public function add_points_option() {
@@ -55,15 +76,13 @@ class PR_Product_Purchase {
             if ($total_available_points >= $required_points) {
                 wp_nonce_field('pr_use_points_nonce', 'pr_points_nonce');
                 ?>
-                <div class="pr-points-only-purchase">
-                    <button type="submit" 
-                            name="pr_purchase_with_points" 
-                            value="yes" 
-                            class="single_add_to_cart_button button alt">
-                        Purchase with <?php echo $required_points; ?> points
-                    </button>
-                    <p class="pr-points-info">You have: <?php echo $total_available_points; ?> points available</p>
-                </div>
+                <button type="submit" 
+                        name="pr_purchase_with_points" 
+                        value="yes" 
+                        class="single_add_to_cart_button button alt">
+                    Purchase with <?php echo $required_points; ?> points
+                </button>
+                <p class="pr-points-info">You have: <?php echo $total_available_points; ?> points available</p>
                 <?php
             } else {
                 ?>
@@ -115,9 +134,20 @@ class PR_Product_Purchase {
         // Hide the default add to cart button with CSS
         ?>
         <style>
-            .woocommerce div.product form.cart .single_add_to_cart_button.button:not([name="pr_purchase_with_points"]),
-            .woocommerce div.product form.cart input[type="number"] {
+            .woocommerce div.product form.cart .single_add_to_cart_button.button:not([name="pr_purchase_with_points"]) {
                 display: none !important;
+            }
+            
+            /* Wrap the quantity and button elements in a flex container */
+            .woocommerce div.product form.cart {
+                display: flex !important;
+                align-items: flex-end !important;
+                gap: 20px !important;
+                flex-wrap: wrap !important;
+            }
+            
+            .woocommerce div.product form.cart .quantity {
+                margin: 0 !important;
             }
         </style>
         <?php
@@ -159,6 +189,11 @@ class PR_Product_Purchase {
         if (isset($_POST['pr_purchase_with_points'])) {
             if (wp_verify_nonce($_POST['pr_points_nonce'], 'pr_use_points_nonce')) {
                 $product = wc_get_product($product_id);
+                if (!$product) {
+                    wc_add_notice('Product not found.', 'error');
+                    return false;
+                }
+                
                 if ($this->is_points_only_product($product)) {
                     $user_id = get_current_user_id();
                     $user_points = PR_Points_Manager::get_user_points($user_id);
@@ -170,9 +205,8 @@ class PR_Product_Purchase {
                     if ($total_available_points >= $required_points) {
                         $cart_item_data['pr_use_points'] = 'yes';
                         $cart_item_data['pr_points_cost'] = $required_points;
-                        // Set price to 0 for points-only purchase
-                        $cart_item_data['data'] = $product->get_data();
-                        $cart_item_data['data']['price'] = 0;
+                        // Mark this for the cart price override filter
+                        $cart_item_data['pr_points_only'] = 'yes';
                     } else {
                         wc_add_notice('Insufficient points to purchase this item.', 'error');
                         return false; // Prevent adding to cart
@@ -182,7 +216,7 @@ class PR_Product_Purchase {
         } elseif (isset($_POST['post_data']) || !empty($_POST)) {
             // Validate that points-only products are NOT being added without points payment
             $product = wc_get_product($product_id);
-            if ($this->is_points_only_product($product)) {
+            if ($product && $this->is_points_only_product($product)) {
                 // User tried to add a points-only product without the points purchase button
                 wc_add_notice('This product can only be purchased with points. Please use the "Purchase with points" button.', 'error');
                 return false; // Prevent adding to cart
@@ -202,7 +236,7 @@ class PR_Product_Purchase {
         $use_points_cart = WC()->session->get('pr_use_points_for_cart', false);
         if ($use_points_cart) {
             $product = wc_get_product($product_id);
-            if ($this->can_purchase_with_points($product) && !$this->is_points_only_product($product)) {
+            if ($product && $this->can_purchase_with_points($product) && !$this->is_points_only_product($product)) {
                 $cart_item_data['pr_use_points'] = 'yes';
             }
         }
@@ -211,10 +245,22 @@ class PR_Product_Purchase {
     }
 
     public function display_cart_item_data($item_data, $cart_item) {
+        // Check if this is a points-only product or explicitly marked with pr_use_points
+        $is_points_purchase = false;
+        
         if (isset($cart_item['pr_use_points'])) {
+            $is_points_purchase = true;
+        } elseif (isset($cart_item['data']) && is_a($cart_item['data'], 'WC_Product')) {
+            $product = $cart_item['data'];
+            if ($this->is_points_only_product($product)) {
+                $is_points_purchase = true;
+            }
+        }
+        
+        if ($is_points_purchase) {
             $item_data[] = array(
-                'name' => 'Payment Method',
-                'value' => 'Points'
+                'name' => '💰 Payment Method',
+                'value' => '<span style="color: #27ae60; font-weight: 600;">Points</span>'
             );
         }
         return $item_data;
@@ -246,10 +292,13 @@ class PR_Product_Purchase {
                 
                 // Get the custom point cost (or calculated default)
                 $required_points = PR_Product_Points_Cost::get_product_points_cost($product_id);
-                $points_used += $required_points;
+                $quantity = $item->get_quantity();
+                $total_item_points = $required_points * $quantity;
+                
+                $points_used += $total_item_points;
                 
                 // Mark the item as paid with points
-                $item->add_meta_data('_pr_points_used', $required_points);
+                $item->add_meta_data('_pr_points_used', $total_item_points);
                 $item->save();
             }
         }
@@ -434,12 +483,8 @@ class PR_Product_Purchase {
                 $quantity = $cart_item['quantity'];
                 
                 if ($this->is_points_only_product($product)) {
-                    // For points-only products, discount the full original price
-                    $original_price = floatval(get_post_meta($product_id, '_regular_price', true));
-                    if (!$original_price) {
-                        $original_price = floatval($product->get_regular_price());
-                    }
-                    $total_discount += $original_price * $quantity;
+                    // Points-only products should already be zero-priced via price filters; no extra discount here
+                    continue;
                 } elseif ($use_points) {
                     // For regular points-eligible products, only discount if points payment is selected
                     $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
@@ -494,10 +539,23 @@ class PR_Product_Purchase {
         $use_points = WC()->session->get('pr_use_points_for_cart', false);
         
         foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+            if (!isset($cart_item['data']) || !is_a($cart_item['data'], 'WC_Product')) {
+                continue;
+            }
+
             $product = $cart_item['data'];
+
+            if ($this->is_points_only_product($product)) {
+                // Force price to zero for points-only catalogue entries
+                $product->set_price(0);
+                $cart->cart_contents[$cart_item_key]['pr_points_only'] = 'yes';
+                unset($cart->cart_contents[$cart_item_key]['pr_use_points']);
+                continue;
+            }
+
             if ($this->can_purchase_with_points($product)) {
                 if ($use_points) {
-                    // Mark item as using points
+                    // Mark item as using points (non points-only product)
                     $cart->cart_contents[$cart_item_key]['pr_use_points'] = 'yes';
                 } else {
                     // Remove points payment from item
@@ -535,6 +593,7 @@ class PR_Product_Purchase {
             $product = wc_get_product($product_id);
             
             if ($this->can_purchase_with_points($product)) {
+                $product_id = $product->get_id();
                 $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
                 $quantity = $item->get_quantity();
                 
@@ -580,5 +639,286 @@ class PR_Product_Purchase {
             $use_points = $data['pr_use_points_checkout'] === 'yes';
             WC()->session->set('pr_use_points_for_cart', $use_points);
         }
+    }
+
+    /**
+     * Check if cart has any points-only products
+     */
+    private function cart_has_points_only_products() {
+        $cart = WC()->cart;
+        if (!$cart) return false;
+        
+        foreach ($cart->get_cart() as $cart_item) {
+            $product = $cart_item['data'];
+            if ($this->is_points_only_product($product)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Display payment method note at checkout (top position)
+     */
+    public function checkout_payment_methods_top() {
+        if ($this->cart_has_points_only_products()) {
+            ?>
+            <div class="pr-checkout-points-notice" style="margin-bottom: 20px;">
+                <p><strong>💡 Points-Only Products:</strong> Some items in your cart will be purchased using your points balance. You will only pay for any applicable shipping costs.</p>
+            </div>
+            <?php
+        }
+    }
+
+    /**
+     * Display payment method note at checkout
+     */
+    public function checkout_payment_methods() {
+        if ($this->cart_has_points_only_products()) {
+            ?>
+            <div class="pr-checkout-points-notice">
+                <p><strong>💡 Points-Only Products:</strong> Some items in your cart will be purchased using your points balance. You will only pay for any applicable shipping costs.</p>
+            </div>
+            <?php
+        }
+    }
+
+    /**
+     * Hide payment gateways if cart contains points-only products
+     */
+    public function checkout_hide_payments_css() {
+        if (!is_checkout()) return;
+
+        // Only hide payment section if the cart contains ONLY points-only products
+        // and the order does not need any payment (e.g. free shipping)
+        if ($this->cart_is_all_points_only_products() && function_exists('WC') && WC()->cart && !WC()->cart->needs_payment()) {
+            ?>
+            <style>
+                #payment { display: none !important; }
+                .woocommerce-checkout #order_review_heading { display: block !important; }
+                .pr-checkout-points-notice {
+                    background: linear-gradient(135deg, #e7f3ff 0%, #f0f8ff 100%);
+                    border-left: 4px solid #2271b1;
+                    padding: 15px 20px;
+                    margin-bottom: 20px;
+                    border-radius: 6px;
+                    color: #0c5aa0;
+                    box-shadow: 0 2px 4px rgba(34, 113, 177, 0.1);
+                }
+                .pr-checkout-points-notice p { margin: 0; font-size: 15px; line-height: 1.6; font-weight: 500; }
+            </style>
+            <?php
+        } else {
+            // Keep the notice styling available even when payments are visible
+            ?>
+            <style>
+                .pr-checkout-points-notice {
+                    background: linear-gradient(135deg, #e7f3ff 0%, #f0f8ff 100%);
+                    border-left: 4px solid #2271b1;
+                    padding: 15px 20px;
+                    margin-bottom: 20px;
+                    border-radius: 6px;
+                    color: #0c5aa0;
+                    box-shadow: 0 2px 4px rgba(34, 113, 177, 0.1);
+                }
+                .pr-checkout-points-notice p { margin: 0; font-size: 15px; line-height: 1.6; font-weight: 500; }
+            </style>
+            <?php
+        }
+    }
+
+    /**
+     * Format line subtotal to show points instead of price for points-only products
+     */
+    public function format_checkout_line_subtotal($subtotal, $item, $order) {
+        if (!$item->get_product_id()) return $subtotal;
+        
+        $product = wc_get_product($item->get_product_id());
+        if (!$product) return $subtotal;
+        
+        if ($this->is_points_only_product($product)) {
+            $points_cost = PR_Product_Points_Cost::get_product_points_cost($item->get_product_id());
+            $quantity = $item->get_quantity();
+            $total_points = $points_cost * $quantity;
+            
+            return '<span class="pr-points-product-price">' . $total_points . ' points</span>';
+        }
+        
+        return $subtotal;
+    }
+
+    /**
+     * Format cart/checkout line subtotal to show points instead of price for points-only products
+     */
+    public function format_cart_item_subtotal($subtotal, $cart_item, $cart_item_key) {
+        if (!isset($cart_item['data']) || !is_a($cart_item['data'], 'WC_Product')) return $subtotal;
+        $product = $cart_item['data'];
+        if (!$this->is_points_only_product($product)) return $subtotal;
+
+        $product_id = $product->get_id();
+        $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
+        $quantity = isset($cart_item['quantity']) ? intval($cart_item['quantity']) : 1;
+        $total_points = $points_cost * max(1, $quantity);
+        return '<span class="pr-points-product-price">' . esc_html($total_points) . ' points</span>';
+    }
+
+    /**
+     * Format per-item price to points for points-only products (cart/checkout)
+     */
+    public function format_cart_item_price($price, $cart_item, $cart_item_key) {
+        if (!isset($cart_item['data']) || !is_a($cart_item['data'], 'WC_Product')) return $price;
+        $product = $cart_item['data'];
+        if (!$this->is_points_only_product($product)) return $price;
+
+        $product_id = $product->get_id();
+        $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
+        return '<span class="pr-points-product-price">' . esc_html($points_cost) . ' points</span>';
+    }
+
+    /**
+     * Format checkout item quantity display to include points pricing
+     */
+    public function format_checkout_item_quantity($quantity_html, $cart_item, $cart_item_key) {
+        if (!isset($cart_item['data']) || !is_a($cart_item['data'], 'WC_Product')) return $quantity_html;
+        $product = $cart_item['data'];
+        if (!$this->is_points_only_product($product)) return $quantity_html;
+
+        $product_id = $product->get_id();
+        $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
+        $quantity = isset($cart_item['quantity']) ? intval($cart_item['quantity']) : 1;
+        $total_points = $points_cost * max(1, $quantity);
+        
+        // Return quantity with points price
+        return sprintf(
+            '%s &times; <span class="pr-points-product-price">%s points</span>',
+            $quantity,
+            esc_html($points_cost)
+        );
+    }
+
+    /**
+     * Remove payment gateways when no monetary payment is required.
+     * Keep shipping methods visible; gateways remain if shipping requires payment.
+     */
+    public function filter_payment_gateways($gateways) {
+        if (!is_checkout()) return $gateways;
+        if (!function_exists('WC') || !WC()->cart) return $gateways;
+
+        // If all items are points-only AND no payment is needed, remove gateways
+        if ($this->cart_is_all_points_only_products() && !WC()->cart->needs_payment()) {
+            return array();
+        }
+
+        // Otherwise, keep gateways (customer may need to pay shipping)
+        return $gateways;
+    }
+
+    /**
+     * Check if all products in the cart are points-only
+     */
+    private function cart_is_all_points_only_products() {
+        $cart = WC()->cart;
+        if (!$cart) return false;
+
+        $has_items = false;
+        foreach ($cart->get_cart() as $cart_item) {
+            $has_items = true;
+            $product = $cart_item['data'];
+            if (!$this->is_points_only_product($product)) {
+                return false;
+            }
+        }
+        return $has_items; // true only if there was at least one item and all were points-only
+    }
+
+    /**
+     * WooCommerce Blocks: Return 0 price for points-only products
+     */
+    public function blocks_product_price($price, $product) {
+        if (!$product) {
+            return $price;
+        }
+        
+        if ($this->is_points_only_product($product)) {
+            return 0;
+        }
+        return $price;
+    }
+
+    /**
+     * WooCommerce Blocks: Return 0 price for points-only cart items
+     */
+    public function blocks_cart_item_price($price, $cart_item, $request = null) {
+        if (!isset($cart_item['data']) || !is_a($cart_item['data'], 'WC_Product')) {
+            return $price;
+        }
+
+        $product = $cart_item['data'];
+        if ($this->is_points_only_product($product)) {
+            return 0;
+        }
+        return $price;
+    }
+
+    /**
+     * WooCommerce Blocks: Modify cart item data to set price to 0 for points-only
+     */
+    public function blocks_cart_item($response, $cart_item, $request = null) {
+        if (!isset($cart_item['data']) || !is_a($cart_item['data'], 'WC_Product')) {
+            return $response;
+        }
+
+        $product = $cart_item['data'];
+        if ($this->is_points_only_product($product)) {
+            $response['prices'] = array(
+                'price' => 0,
+                'regular_price' => 0,
+                'sale_price' => 0,
+                'price_range' => null,
+                'currency_code' => get_woocommerce_currency(),
+                'currency_symbol' => get_woocommerce_currency_symbol(),
+                'currency_minor_unit' => wc_get_price_decimals(),
+                'currency_decimal_separator' => wc_get_price_decimal_separator(),
+                'currency_thousand_separator' => wc_get_price_thousand_separator(),
+                'currency_prefix' => '',
+                'currency_suffix' => '',
+            );
+            $response['totals'] = array(
+                'line_subtotal' => 0,
+                'line_subtotal_tax' => 0,
+                'line_total' => 0,
+                'line_total_tax' => 0,
+            );
+        }
+        return $response;
+    }
+
+    /**
+     * WooCommerce Blocks: Mark price as non-editable for points-only products
+     */
+    public function blocks_product_quantity_editable($editable, $product) {
+        if (!$product) {
+            return $editable;
+        }
+
+        if ($this->is_points_only_product($product)) {
+            return false;
+        }
+        return $editable;
+    }
+
+    /**
+     * WooCommerce Blocks: Mark cart item price as non-editable for points-only products
+     */
+    public function blocks_item_price_editable($editable, $cart_item, $request = null) {
+        if (!isset($cart_item['data']) || !is_a($cart_item['data'], 'WC_Product')) {
+            return $editable;
+        }
+
+        $product = $cart_item['data'];
+        if ($this->is_points_only_product($product)) {
+            return false;
+        }
+        return $editable;
     }
 }

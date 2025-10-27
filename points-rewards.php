@@ -30,6 +30,7 @@ require_once PR_PLUGIN_PATH . 'includes/class-product-points-cost.php';
 require_once PR_PLUGIN_PATH . 'includes/class-frontend-display.php';
 require_once PR_PLUGIN_PATH . 'includes/class-guest-recovery.php';
 require_once PR_PLUGIN_PATH . 'includes/class-user-management.php';
+require_once PR_PLUGIN_PATH . 'includes/class-blocks-integration.php';
 
 // Initialize plugin
 class Points_Rewards_Plugin {
@@ -51,6 +52,7 @@ class Points_Rewards_Plugin {
         new PR_Frontend_Display();
         new PR_Guest_Recovery();
         new PR_User_Management();
+        new PR_Blocks_Integration();
 
         // Enqueue frontend CSS
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_styles'));

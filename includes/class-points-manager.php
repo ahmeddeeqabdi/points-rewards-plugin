@@ -119,17 +119,23 @@ class PR_Points_Manager {
             return false;
         }
         
+        // If no existing record, user has no points to redeem
+        if (!$existing) {
+            error_log("Points & Rewards: User $user_id has no points record.");
+            return false;
+        }
+        
         // Get registration bonus to calculate total available points
         $registration_bonus = intval(get_option('pr_registration_points', 0));
         $total_available_points = (int)$existing->points + $registration_bonus;
         
-        if ($existing && $total_available_points >= $points) {
+        if ($total_available_points >= $points) {
             // Deduct from stored points first, then from the bonus
-            $points_to_deduct_from_stored = max(0, (int)$existing->points - $points);
+            $new_points = max(0, (int)$existing->points - $points);
             $result = $wpdb->update(
                 $table_name,
                 array(
-                    'points' => $points_to_deduct_from_stored,
+                    'points' => $new_points,
                     'redeemed_points' => (int)$existing->redeemed_points + $points
                 ),
                 array('user_id' => $user_id)

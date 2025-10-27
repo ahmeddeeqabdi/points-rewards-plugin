@@ -14,8 +14,12 @@ class PR_Product_Points_Cost {
         
         // Modify price display for points-only products
         add_filter('woocommerce_get_price_html', array($this, 'modify_price_display'), 10, 2);
-        add_filter('woocommerce_product_get_price', array($this, 'modify_price_value'), 10, 2);
-        add_filter('woocommerce_product_variation_get_price', array($this, 'modify_price_value'), 10, 2);
+    add_filter('woocommerce_product_get_price', array($this, 'modify_price_value'), 10, 2);
+    add_filter('woocommerce_product_variation_get_price', array($this, 'modify_price_value'), 10, 2);
+    add_filter('woocommerce_product_get_regular_price', array($this, 'modify_price_value'), 10, 2);
+    add_filter('woocommerce_product_variation_get_regular_price', array($this, 'modify_price_value'), 10, 2);
+    add_filter('woocommerce_product_get_sale_price', array($this, 'modify_price_value'), 10, 2);
+    add_filter('woocommerce_product_variation_get_sale_price', array($this, 'modify_price_value'), 10, 2);
     }
 
     /**
@@ -126,8 +130,12 @@ class PR_Product_Points_Cost {
         // Check if custom cost is set
         $custom_cost = get_post_meta($product_id, '_pr_custom_point_cost', true);
         
-        if ($custom_cost) {
-            return intval($custom_cost);
+        // If custom cost exists and is valid, use it
+        if (!empty($custom_cost)) {
+            $custom_cost = intval($custom_cost);
+            if ($custom_cost > 0) {
+                return $custom_cost;
+            }
         }
 
         // Fall back to calculated cost based on conversion rate
