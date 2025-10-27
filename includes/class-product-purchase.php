@@ -331,18 +331,42 @@ class PR_Product_Purchase {
     /**
      * CENTRALIZED HELPER: Check if product is in points-only mode
      * Used across all hooks to determine if a product is points-based
+     * A product is points-only ONLY when:
+     * 1) Points-only mode is enabled (pr_points_only_categories = yes)
+     * 2) Category restrictions are enabled (pr_restrict_categories = yes)
+     * 3) Product is in an allowed category
+     * 4) Product has an EXPLICIT custom points cost set (not calculated)
      */
     private function is_points_only_product($product) {
         if (!$product || !is_a($product, 'WC_Product')) {
             return false;
         }
         
+        // Must have points-only mode enabled
         $points_only = get_option('pr_points_only_categories', 'no');
         if ($points_only !== 'yes') {
             return false;
         }
         
-        return $this->can_purchase_with_points($product);
+        // Must have category restrictions enabled
+        $restrict_categories = get_option('pr_restrict_categories', 'no');
+        if ($restrict_categories !== 'yes') {
+            return false;
+        }
+        
+        $allowed_categories = get_option('pr_allowed_categories', array());
+        if (empty($allowed_categories)) {
+            return false;
+        }
+
+        $product_categories = wp_get_post_terms($product->get_id(), 'product_cat', array('fields' => 'ids'));
+        if (empty(array_intersect((array) $allowed_categories, $product_categories))) {
+            return false;
+        }
+
+        // NEW: Must have an EXPLICIT custom points cost set (not calculated/default)
+        $explicit_cost = PR_Product_Points_Cost::get_explicit_custom_points_cost($product->get_id());
+        return $explicit_cost !== false;
     }
 
     /**
