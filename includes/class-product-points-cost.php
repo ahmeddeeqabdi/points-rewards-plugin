@@ -11,6 +11,11 @@ class PR_Product_Points_Cost {
         
         // Display on frontend in product purchase section
         add_filter('woocommerce_before_add_to_cart_button', array($this, 'display_custom_point_cost'), 5);
+        
+        // Modify price display for points-only products
+        add_filter('woocommerce_get_price_html', array($this, 'modify_price_display'), 10, 2);
+        add_filter('woocommerce_product_get_price', array($this, 'modify_price_value'), 10, 2);
+        add_filter('woocommerce_product_variation_get_price', array($this, 'modify_price_value'), 10, 2);
     }
 
     /**
@@ -190,6 +195,41 @@ class PR_Product_Points_Cost {
         $product_categories = wp_get_post_terms($product->get_id(), 'product_cat', array('fields' => 'ids'));
         
         return !empty(array_intersect($product_categories, (array)$allowed_categories));
+    }
+
+    /**
+     * Check if product is in points-only mode
+     */
+    private function is_points_only_product($product) {
+        $points_only = get_option('pr_points_only_categories', 'no');
+        if ($points_only !== 'yes') {
+            return false;
+        }
+        
+        return $this->can_purchase_with_points($product);
+    }
+
+    /**
+     * Modify price display for points-only products
+     */
+    public function modify_price_display($price_html, $product) {
+        if ($this->is_points_only_product($product)) {
+            $points_cost = self::get_product_points_cost($product->get_id());
+            return '<span class="pr-points-price">' . $points_cost . ' points</span>';
+        }
+        
+        return $price_html;
+    }
+
+    /**
+     * Modify price value for points-only products (set to 0 so they appear free)
+     */
+    public function modify_price_value($price, $product) {
+        if ($this->is_points_only_product($product)) {
+            return 0;
+        }
+        
+        return $price;
     }
 }
 ?>

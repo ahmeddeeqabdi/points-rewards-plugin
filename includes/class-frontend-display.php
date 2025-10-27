@@ -36,6 +36,21 @@ class PR_Frontend_Display {
         }
 
         $user_id = get_current_user_id();
+        
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            return array(
+                'available_points' => 0,
+                'total_points' => 0,
+                'redeemed_points' => 0,
+                'total_spent' => 0,
+                'registration_bonus' => 0,
+                'purchase_points' => 0,
+                'access_revoked' => true
+            );
+        }
+
         $user_points = PR_Points_Manager::get_user_points($user_id);
         $registration_bonus = intval(get_option('pr_registration_points', 0));
         $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
@@ -110,6 +125,41 @@ class PR_Frontend_Display {
     public function display_point_log_page() {
         $data = $this->display_points_dashboard();
         $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
+        
+        // Check if access is revoked
+        if (isset($data['access_revoked']) && $data['access_revoked']) {
+            ?>
+            <!DOCTYPE html>
+            <html <?php language_attributes(); ?>>
+            <head>
+                <meta charset="<?php bloginfo('charset'); ?>">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title><?php bloginfo('name'); ?> - Access Revoked</title>
+                <?php wp_head(); ?>
+            </head>
+            <body <?php body_class('pr-point-log-page'); ?>>
+                <?php wp_body_open(); ?>
+                
+                <div class="pr-point-log-wrapper">
+                    <div class="pr-point-log-container">
+                        <div style="text-align: center; padding: 50px; background: #f8f9fa; border-radius: 8px; margin: 20px 0;">
+                            <h2 style="color: #dc3545; margin-bottom: 20px;">🚫 Access Revoked</h2>
+                            <p style="font-size: 16px; color: #666; margin-bottom: 20px;">
+                                Your rewards access has been revoked by an administrator.
+                            </p>
+                            <p style="font-size: 14px; color: #999;">
+                                If you believe this is an error, please contact support.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <?php wp_footer(); ?>
+            </body>
+            </html>
+            <?php
+            return;
+        }
         
         // Output the page header
         status_header(200);

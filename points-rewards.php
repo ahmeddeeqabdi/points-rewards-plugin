@@ -23,7 +23,6 @@ define('PR_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('PR_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Include required files
-require_once PR_PLUGIN_PATH . 'includes/class-conflict-detector.php';
 require_once PR_PLUGIN_PATH . 'includes/class-points-manager.php';
 require_once PR_PLUGIN_PATH . 'includes/class-admin-settings.php';
 require_once PR_PLUGIN_PATH . 'includes/class-product-purchase.php';
@@ -192,9 +191,3 @@ class Points_Rewards_Plugin {
 }
 
 new Points_Rewards_Plugin();
-
-// Run conflict detection on activation
-register_activation_hook(__FILE__, function() {
-    PR_Conflict_Detector::check_on_activation();
-    PR_Conflict_Detector::log_diagnostic_report();
-});

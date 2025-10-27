@@ -12,6 +12,7 @@ class PR_Admin_Settings {
         add_action('update_option_pr_enable_purchase', array($this, 'cleanup_on_settings_change'), 10, 2);
         add_action('update_option_pr_restrict_categories', array($this, 'cleanup_on_settings_change'), 10, 2);
         add_action('update_option_pr_allowed_categories', array($this, 'cleanup_on_settings_change'), 10, 2);
+        add_action('update_option_pr_points_only_categories', array($this, 'cleanup_on_settings_change'), 10, 2);
     }
 
     public function add_admin_menu() {
@@ -77,6 +78,11 @@ class PR_Admin_Settings {
         register_setting('pr_settings', 'pr_allowed_categories', array(
             'sanitize_callback' => array($this, 'sanitize_allowed_categories'),
             'default' => array()
+        ));
+        register_setting('pr_settings', 'pr_points_only_categories', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field',
+            'default' => 'no'
         ));
     }
 
@@ -292,6 +298,28 @@ class PR_Admin_Settings {
                                 ?>
                                 <p class="description">
                                     Select which product categories can be purchased with points (e.g., "gave produkt")
+                                </p>
+                            </td>
+                        </tr>
+                        <tr class="pr-points-only-row" 
+                            style="<?php echo $restrict_categories === 'yes' ? '' : 'display:none;'; ?>">
+                            <th scope="row">
+                                <label for="pr_points_only_categories">Points-Only Mode</label>
+                            </th>
+                            <td>
+                                <label class="pr-toggle">
+                                    <input type="checkbox" 
+                                           id="pr_points_only_categories" 
+                                           name="pr_points_only_categories" 
+                                           value="yes" 
+                                           <?php checked(get_option('pr_points_only_categories', 'no'), 'yes'); ?> />
+                                    <span class="pr-toggle-slider"></span>
+                                </label>
+                                <span class="pr-toggle-label">
+                                    Products in allowed categories can ONLY be purchased with points (no money payment)
+                                </span>
+                                <p class="description">
+                                    When enabled, products in selected categories will show points instead of price and can only be purchased using points.
                                 </p>
                             </td>
                         </tr>
@@ -538,6 +566,19 @@ class PR_Admin_Settings {
             document.getElementById('pr-set-points-modal').addEventListener('click', function(e) {
                 if (e.target === this) {
                     this.style.display = 'none';
+                }
+            });
+
+            // Handle restrict categories toggle
+            document.getElementById('pr_restrict_categories').addEventListener('change', function() {
+                const categoriesRow = document.querySelector('.pr-categories-row');
+                const pointsOnlyRow = document.querySelector('.pr-points-only-row');
+                if (this.checked) {
+                    categoriesRow.style.display = '';
+                    pointsOnlyRow.style.display = '';
+                } else {
+                    categoriesRow.style.display = 'none';
+                    pointsOnlyRow.style.display = 'none';
                 }
             });
         </script>

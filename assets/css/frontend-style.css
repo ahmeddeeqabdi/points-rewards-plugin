@@ -348,3 +348,62 @@
   padding: 15px !important;
   text-align: left !important;
 }
+
+/* Points-Only Products Styling */
+.pr-points-price {
+  color: #2271b1;
+  font-weight: 700;
+  font-size: 1.2em;
+}
+
+.pr-points-only-purchase {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.pr-points-only-purchase .single_add_to_cart_button {
+  background: #2271b1 !important;
+  border-color: #2271b1 !important;
+  color: white !important;
+  font-weight: 600 !important;
+  padding: 12px 24px !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+.pr-points-only-purchase .single_add_to_cart_button:hover {
+  background: #135e96 !important;
+  border-color: #135e96 !important;
+}
+
+.pr-points-info {
+  color: #666;
+  font-size: 0.9em;
+  margin-top: 8px;
+}
+
+.pr-insufficient-points {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 15px;
+  margin-top: 20px;
+  text-align: center;
+}
+
+.pr-points-required {
+  color: #856404;
+  font-weight: 600;
+  font-size: 1.1em;
+}
+
+.pr-points-available {
+  color: #856404;
+  margin: 5px 0;
+}
+
+.pr-earn-more {
+  color: #856404;
+  font-size: 0.9em;
+  font-style: italic;
+}

@@ -18,6 +18,9 @@ class PR_Product_Purchase {
         add_action('woocommerce_before_calculate_totals', array($this, 'update_cart_item_points_data'));
         add_action('woocommerce_checkout_update_order_review', array($this, 'handle_checkout_points_update'));
         add_action('woocommerce_checkout_create_order', array($this, 'apply_points_discount_to_order'), 10, 2);
+        
+        // Hide default add to cart button for points-only products
+        add_filter('woocommerce_single_product_summary', array($this, 'hide_add_to_cart_for_points_only'), 9);
     }
 
     public function add_points_option() {
@@ -26,9 +29,52 @@ class PR_Product_Purchase {
         $enable_purchase = get_option('pr_enable_purchase', 'no');
         if ($enable_purchase !== 'yes') return;
         
+        $user_id = get_current_user_id();
+        
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            return; // Don't show points option for revoked users
+        }
+        
         global $product;
         
-        if ($this->can_purchase_with_points($product)) {
+        if ($this->is_points_only_product($product)) {
+            // For points-only products, show purchase button only if user has enough points
+            $user_id = get_current_user_id();
+            $user_points = PR_Points_Manager::get_user_points($user_id);
+            $product_id = $product->get_id();
+            
+            // Get the custom point cost (or calculated default)
+            $required_points = PR_Product_Points_Cost::get_product_points_cost($product_id);
+            
+            // Get total points including registration bonus
+            $registration_bonus = intval(get_option('pr_registration_points', 0));
+            $total_available_points = $user_points->points + $registration_bonus;
+            
+            if ($total_available_points >= $required_points) {
+                wp_nonce_field('pr_use_points_nonce', 'pr_points_nonce');
+                ?>
+                <div class="pr-points-only-purchase">
+                    <button type="submit" 
+                            name="pr_purchase_with_points" 
+                            value="yes" 
+                            class="single_add_to_cart_button button alt">
+                        Purchase with <?php echo $required_points; ?> points
+                    </button>
+                    <p class="pr-points-info">You have: <?php echo $total_available_points; ?> points available</p>
+                </div>
+                <?php
+            } else {
+                ?>
+                <div class="pr-insufficient-points">
+                    <p class="pr-points-required">Requires <?php echo $required_points; ?> points</p>
+                    <p class="pr-points-available">You have: <?php echo $total_available_points; ?> points</p>
+                    <p class="pr-earn-more">Earn more points by making purchases to unlock this item.</p>
+                </div>
+                <?php
+            }
+        } elseif ($this->can_purchase_with_points($product)) {
             $user_id = get_current_user_id();
             $user_points = PR_Points_Manager::get_user_points($user_id);
             $product_id = $product->get_id();
@@ -56,6 +102,27 @@ class PR_Product_Purchase {
         }
     }
 
+    /**
+     * Hide the default add to cart button for points-only products
+     */
+    public function hide_add_to_cart_for_points_only() {
+        global $product;
+        
+        if (!$this->is_points_only_product($product)) {
+            return; // Not a points-only product, allow normal behavior
+        }
+        
+        // Hide the default add to cart button with CSS
+        ?>
+        <style>
+            .woocommerce div.product form.cart .single_add_to_cart_button.button:not([name="pr_purchase_with_points"]),
+            .woocommerce div.product form.cart input[type="number"] {
+                display: none !important;
+            }
+        </style>
+        <?php
+    }
+
     private function can_purchase_with_points($product) {
         $restrict_categories = get_option('pr_restrict_categories', 'no');
         
@@ -75,7 +142,53 @@ class PR_Product_Purchase {
         return !empty(array_intersect($product_categories, (array)$allowed_categories));
     }
 
+    /**
+     * Check if product is in points-only mode
+     */
+    private function is_points_only_product($product) {
+        $points_only = get_option('pr_points_only_categories', 'no');
+        if ($points_only !== 'yes') {
+            return false;
+        }
+        
+        return $this->can_purchase_with_points($product);
+    }
+
     public function add_cart_item_data($cart_item_data, $product_id) {
+        // Check for points-only purchase submission
+        if (isset($_POST['pr_purchase_with_points'])) {
+            if (wp_verify_nonce($_POST['pr_points_nonce'], 'pr_use_points_nonce')) {
+                $product = wc_get_product($product_id);
+                if ($this->is_points_only_product($product)) {
+                    $user_id = get_current_user_id();
+                    $user_points = PR_Points_Manager::get_user_points($user_id);
+                    $required_points = PR_Product_Points_Cost::get_product_points_cost($product_id);
+                    
+                    $registration_bonus = intval(get_option('pr_registration_points', 0));
+                    $total_available_points = $user_points->points + $registration_bonus;
+                    
+                    if ($total_available_points >= $required_points) {
+                        $cart_item_data['pr_use_points'] = 'yes';
+                        $cart_item_data['pr_points_cost'] = $required_points;
+                        // Set price to 0 for points-only purchase
+                        $cart_item_data['data'] = $product->get_data();
+                        $cart_item_data['data']['price'] = 0;
+                    } else {
+                        wc_add_notice('Insufficient points to purchase this item.', 'error');
+                        return false; // Prevent adding to cart
+                    }
+                }
+            }
+        } elseif (isset($_POST['post_data']) || !empty($_POST)) {
+            // Validate that points-only products are NOT being added without points payment
+            $product = wc_get_product($product_id);
+            if ($this->is_points_only_product($product)) {
+                // User tried to add a points-only product without the points purchase button
+                wc_add_notice('This product can only be purchased with points. Please use the "Purchase with points" button.', 'error');
+                return false; // Prevent adding to cart
+            }
+        }
+        
         // Check for product page submission
         if (isset($_POST['pr_points_nonce'])) {
             if (wp_verify_nonce($_POST['pr_points_nonce'], 'pr_use_points_nonce')) {
@@ -89,7 +202,7 @@ class PR_Product_Purchase {
         $use_points_cart = WC()->session->get('pr_use_points_for_cart', false);
         if ($use_points_cart) {
             $product = wc_get_product($product_id);
-            if ($this->can_purchase_with_points($product)) {
+            if ($this->can_purchase_with_points($product) && !$this->is_points_only_product($product)) {
                 $cart_item_data['pr_use_points'] = 'yes';
             }
         }
@@ -118,6 +231,12 @@ class PR_Product_Purchase {
         $user_id = $order->get_user_id();
         
         if (!$user_id) return;
+        
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            return; // Don't process points payment for revoked users
+        }
         
         $points_used = 0;
         
@@ -157,16 +276,24 @@ class PR_Product_Purchase {
         $enable_purchase = get_option('pr_enable_purchase', 'no');
         if ($enable_purchase !== 'yes') return;
 
+        $user_id = get_current_user_id();
+        
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            return; // Don't show points option for revoked users
+        }
+
         $cart = WC()->cart;
         if (!$cart || $cart->is_empty()) return;
 
-        // Check if cart has any eligible products
+        // Check if cart has any eligible products (exclude points-only products)
         $has_eligible_products = false;
         $total_points_needed = 0;
         
         foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
             $product = $cart_item['data'];
-            if ($this->can_purchase_with_points($product)) {
+            if ($this->can_purchase_with_points($product) && !$this->is_points_only_product($product)) {
                 $has_eligible_products = true;
                 $product_id = $product->get_id();
                 $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
@@ -215,16 +342,24 @@ class PR_Product_Purchase {
         $enable_purchase = get_option('pr_enable_purchase', 'no');
         if ($enable_purchase !== 'yes') return;
 
+        $user_id = get_current_user_id();
+        
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            return; // Don't show points option for revoked users
+        }
+
         $cart = WC()->cart;
         if (!$cart || $cart->is_empty()) return;
 
-        // Check if cart has any eligible products
+        // Check if cart has any eligible products (exclude points-only products)
         $has_eligible_products = false;
         $total_points_needed = 0;
         
         foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
             $product = $cart_item['data'];
-            if ($this->can_purchase_with_points($product)) {
+            if ($this->can_purchase_with_points($product) && !$this->is_points_only_product($product)) {
                 $has_eligible_products = true;
                 $product_id = $product->get_id();
                 $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
@@ -279,6 +414,14 @@ class PR_Product_Purchase {
         $enable_purchase = get_option('pr_enable_purchase', 'no');
         if ($enable_purchase !== 'yes') return;
 
+        $user_id = get_current_user_id();
+        
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            return; // Don't apply points discount for revoked users
+        }
+
         $use_points = WC()->session->get('pr_use_points_for_cart', false);
         if (!$use_points) return;
 
@@ -288,13 +431,22 @@ class PR_Product_Purchase {
             $product = $cart_item['data'];
             if ($this->can_purchase_with_points($product)) {
                 $product_id = $product->get_id();
-                $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
                 $quantity = $cart_item['quantity'];
                 
-                // Calculate discount based on points cost
-                $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
-                $discount_amount = ($points_cost * $quantity) * $conversion_rate;
-                $total_discount += $discount_amount;
+                if ($this->is_points_only_product($product)) {
+                    // For points-only products, discount the full original price
+                    $original_price = floatval(get_post_meta($product_id, '_regular_price', true));
+                    if (!$original_price) {
+                        $original_price = floatval($product->get_regular_price());
+                    }
+                    $total_discount += $original_price * $quantity;
+                } elseif ($use_points) {
+                    // For regular points-eligible products, only discount if points payment is selected
+                    $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
+                    $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
+                    $discount_amount = ($points_cost * $quantity) * $conversion_rate;
+                    $total_discount += $discount_amount;
+                }
             }
         }
 
@@ -314,6 +466,14 @@ class PR_Product_Purchase {
         // Verify nonce
         if (!isset($_POST['security']) || !wp_verify_nonce($_POST['security'], 'pr_points_payment_nonce')) {
             wp_die('Security check failed');
+        }
+
+        $user_id = get_current_user_id();
+        
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            wp_die('Access denied'); // Don't allow revoked users to toggle points payment
         }
 
         $use_points = isset($_POST['use_points']) && $_POST['use_points'] === 'true';
@@ -356,6 +516,14 @@ class PR_Product_Purchase {
         $enable_purchase = get_option('pr_enable_purchase', 'no');
         if ($enable_purchase !== 'yes') return;
 
+        $user_id = get_current_user_id();
+        
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            return; // Don't apply points discount for revoked users
+        }
+
         $use_points = WC()->session->get('pr_use_points_for_cart', false);
         if (!$use_points) return;
 
@@ -396,6 +564,16 @@ class PR_Product_Purchase {
      * Handle checkout points update via AJAX
      */
     public function handle_checkout_points_update($posted_data) {
+        if (!is_user_logged_in()) return;
+        
+        $user_id = get_current_user_id();
+        
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            return; // Don't allow revoked users to toggle points payment
+        }
+        
         parse_str($posted_data, $data);
         
         if (isset($data['pr_use_points_checkout'])) {
