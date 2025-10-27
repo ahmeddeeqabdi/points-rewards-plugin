@@ -125,9 +125,17 @@ class PR_Points_Manager {
             return false;
         }
         
-        // Get registration bonus to calculate total available points
+        // Calculate total available points (respecting manually_set flag)
         $registration_bonus = intval(get_option('pr_registration_points', 0));
-        $total_available_points = (int)$existing->points + $registration_bonus;
+        $manually_set = intval($existing->points_manually_set);
+        
+        // If points were manually set by admin, use them as-is (they already include bonus)
+        if ($manually_set === 1) {
+            $total_available_points = (int)$existing->points;
+        } else {
+            // Otherwise, add the registration bonus to earned points
+            $total_available_points = (int)$existing->points + $registration_bonus;
+        }
         
         if ($total_available_points >= $points) {
             // Deduct from stored points first, then from the bonus

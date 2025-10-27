@@ -12,14 +12,27 @@ class PR_Product_Points_Cost {
         // Display on frontend in product purchase section
         add_filter('woocommerce_before_add_to_cart_button', array($this, 'display_custom_point_cost'), 5);
         
-        // Modify price display for points-only products
-        add_filter('woocommerce_get_price_html', array($this, 'modify_price_display'), 10, 2);
-    add_filter('woocommerce_product_get_price', array($this, 'modify_price_value'), 10, 2);
-    add_filter('woocommerce_product_variation_get_price', array($this, 'modify_price_value'), 10, 2);
-    add_filter('woocommerce_product_get_regular_price', array($this, 'modify_price_value'), 10, 2);
-    add_filter('woocommerce_product_variation_get_regular_price', array($this, 'modify_price_value'), 10, 2);
-    add_filter('woocommerce_product_get_sale_price', array($this, 'modify_price_value'), 10, 2);
-    add_filter('woocommerce_product_variation_get_sale_price', array($this, 'modify_price_value'), 10, 2);
+        // PART 1: Core WooCommerce - Zero out prices at the source (HIGH PRIORITY)
+        // Product prices
+        add_filter('woocommerce_product_get_price', array($this, 'zero_price_for_points_only'), 100, 2);
+        add_filter('woocommerce_product_get_regular_price', array($this, 'zero_price_for_points_only'), 100, 2);
+        add_filter('woocommerce_product_get_sale_price', array($this, 'zero_price_for_points_only'), 100, 2);
+        
+        // Variation prices
+        add_filter('woocommerce_product_variation_get_price', array($this, 'zero_price_for_points_only'), 100, 2);
+        add_filter('woocommerce_product_variation_get_regular_price', array($this, 'zero_price_for_points_only'), 100, 2);
+        add_filter('woocommerce_product_variation_get_sale_price', array($this, 'zero_price_for_points_only'), 100, 2);
+        
+        // Variation price arrays
+        add_filter('woocommerce_variation_prices_price', array($this, 'zero_price_for_points_only'), 100, 2);
+        add_filter('woocommerce_variation_prices_regular_price', array($this, 'zero_price_for_points_only'), 100, 2);
+        add_filter('woocommerce_variation_prices_sale_price', array($this, 'zero_price_for_points_only'), 100, 2);
+        
+        // Display HTML (override monetary display with points)
+        add_filter('woocommerce_get_price_html', array($this, 'display_points_instead_of_price'), 100, 2);
+        
+        // Add REST API filter for variation prices
+        add_filter('woocommerce_rest_prepare_product_variation_object', array($this, 'add_points_cost_to_variation_rest'), 10, 3);
     }
 
     /**
@@ -127,7 +140,7 @@ class PR_Product_Points_Cost {
      * Get the points cost for a product
      */
     public static function get_product_points_cost($product_id) {
-        // Check if custom cost is set
+        // Check if custom cost is set for this product (works for parent and variations)
         $custom_cost = get_post_meta($product_id, '_pr_custom_point_cost', true);
         
         // If custom cost exists and is valid, use it
@@ -144,8 +157,22 @@ class PR_Product_Points_Cost {
             return 0;
         }
 
-        $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
+        // Handle variations: if this is a variation, check parent for custom cost first
+        if ($product->is_type('variation')) {
+            $parent_id = $product->get_parent_id();
+            if ($parent_id) {
+                $parent_custom_cost = get_post_meta($parent_id, '_pr_custom_point_cost', true);
+                if (!empty($parent_custom_cost)) {
+                    $parent_custom_cost = intval($parent_custom_cost);
+                    if ($parent_custom_cost > 0) {
+                        return $parent_custom_cost;
+                    }
+                }
+            }
+        }
+
         $product_price = floatval($product->get_price());
+        $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
         
         return intval(ceil($product_price / $conversion_rate));
     }
@@ -208,7 +235,7 @@ class PR_Product_Points_Cost {
     /**
      * Check if product is in points-only mode
      */
-    private function is_points_only_product($product) {
+    public function is_points_only_product($product) {
         $points_only = get_option('pr_points_only_categories', 'no');
         if ($points_only !== 'yes') {
             return false;
@@ -218,9 +245,29 @@ class PR_Product_Points_Cost {
     }
 
     /**
-     * Modify price display for points-only products
+     * CORE PRINCIPLE: Zero out price at the source (for points-only products)
+     * This runs with priority 100 to override all other price modifications
      */
-    public function modify_price_display($price_html, $product) {
+    public function zero_price_for_points_only($price, $product) {
+        if (!$product || !is_a($product, 'WC_Product')) {
+            return $price;
+        }
+        
+        if ($this->is_points_only_product($product)) {
+            return 0;
+        }
+        
+        return $price;
+    }
+
+    /**
+     * Display points instead of monetary price (for visual representation)
+     */
+    public function display_points_instead_of_price($price_html, $product) {
+        if (!$product || !is_a($product, 'WC_Product')) {
+            return $price_html;
+        }
+        
         if ($this->is_points_only_product($product)) {
             $points_cost = self::get_product_points_cost($product->get_id());
             return '<span class="pr-points-price">' . $points_cost . ' points</span>';
@@ -230,14 +277,24 @@ class PR_Product_Points_Cost {
     }
 
     /**
-     * Modify price value for points-only products (set to 0 so they appear free)
+     * Add points cost to variation REST API response
      */
-    public function modify_price_value($price, $product) {
-        if ($this->is_points_only_product($product)) {
-            return 0;
+    public function add_points_cost_to_variation_rest($response, $product, $request) {
+        if (!is_a($response, 'WP_REST_Response')) {
+            return $response;
         }
         
-        return $price;
+        $data = $response->get_data();
+        
+        // Check if this is a points-only product
+        if ($this->is_points_only_product($product)) {
+            $points_cost = self::get_product_points_cost($product->get_id());
+            // Add points cost to the price display text
+            $data['price_html'] = '<span class="pr-points-price">' . $points_cost . ' points</span>';
+        }
+        
+        $response->set_data($data);
+        return $response;
     }
 }
 ?>
