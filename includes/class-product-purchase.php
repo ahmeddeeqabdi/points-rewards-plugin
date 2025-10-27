@@ -43,13 +43,15 @@ class PR_Product_Purchase {
         add_filter('woocommerce_store_api_product_price', array($this, 'blocks_zero_product_price'), 100, 2);
         add_filter('woocommerce_store_api_cart_item_product_price', array($this, 'blocks_zero_cart_item_price'), 100, 3);
         add_filter('woocommerce_store_api_cart_item', array($this, 'blocks_modify_cart_item_data'), 100, 2);
+    add_filter('woocommerce_rest_cart_totals', array($this, 'blocks_modify_cart_totals'), 100, 2);
+    add_filter('woocommerce_store_api_cart_data', array($this, 'blocks_modify_cart_totals'), 100, 2);
         
         // 3. Filter cart totals in API
         // Note: woocommerce_rest_cart_totals might not exist, using alternative
         
         // 4. Disable price editing for points items
-        add_filter('woocommerce_store_api_product_quantity_editable', array($this, 'blocks_disable_quantity_edit'), 10, 2);
-        add_filter('woocommerce_store_api_cart_item_price_is_editable', array($this, 'blocks_disable_price_edit'), 10, 2);
+    add_filter('woocommerce_store_api_product_quantity_editable', array($this, 'blocks_disable_quantity_edit'), 100, 2);
+    add_filter('woocommerce_store_api_cart_item_price_is_editable', array($this, 'blocks_disable_price_edit'), 100, 2);
         
         // ========================================================================
         // SUPPORTING FUNCTIONALITY
@@ -533,11 +535,6 @@ class PR_Product_Purchase {
         
         return $quantity_html;
     }
-            return '<span class="pr-points-product-price">' . esc_html($total_points) . ' points</span>';
-        }
-        
-        return $subtotal;
-    }
 
     // ========================================================================
     // PART 2: WOOCOMMERCE BLOCKS / STORE API INTEGRATION
@@ -621,6 +618,156 @@ class PR_Product_Purchase {
         }
         
         return $response;
+    }
+
+    /**
+     * Blocks: Normalize cart totals in Store API / REST responses (Priority 100)
+     */
+    public function blocks_modify_cart_totals($data, $context = null) {
+        if (!is_array($data)) {
+            return $data;
+        }
+
+        // Handle full cart payloads (Store API) that contain a nested totals array.
+        if (isset($data['totals']) && is_array($data['totals'])) {
+            $data['totals'] = $this->adjust_api_totals($data['totals']);
+            return $data;
+        }
+
+        return $this->adjust_api_totals($data);
+    }
+
+    /**
+     * Determine if the current cart is a points purchase and normalise totals accordingly.
+     */
+    private function adjust_api_totals($totals) {
+        if (!function_exists('WC') || !WC()->cart) {
+            return $totals;
+        }
+
+        $cart = WC()->cart;
+
+        if (empty($cart->get_cart())) {
+            return $totals;
+        }
+
+        if (!$this->cart_all_items_are_points_purchases($cart)) {
+            return $totals;
+        }
+
+        $cart_totals = $cart->get_totals();
+        $shipping_total = isset($cart_totals['shipping_total']) ? (float) $cart_totals['shipping_total'] : 0.0;
+        $shipping_tax_total = isset($cart_totals['shipping_tax']) ? (float) $cart_totals['shipping_tax'] : 0.0;
+        $payable_total = $shipping_total + $shipping_tax_total;
+
+        $totals = $this->zero_out_totals_array($totals);
+
+        $totals = $this->set_total_amount($totals, 'total_shipping', $shipping_total);
+        $totals = $this->set_total_amount($totals, 'total_shipping_tax', $shipping_tax_total);
+        $totals = $this->set_total_amount($totals, 'shipping_total', $shipping_total);
+        $totals = $this->set_total_amount($totals, 'shipping_tax', $shipping_tax_total);
+        $totals = $this->set_total_amount($totals, 'total_price', $payable_total);
+        $totals = $this->set_total_amount($totals, 'total_payable', $payable_total);
+        $totals = $this->set_total_amount($totals, 'total', $payable_total);
+        $totals = $this->set_total_amount($totals, 'total_tax', $shipping_tax_total);
+        $totals = $this->set_total_amount($totals, 'grand_total', $payable_total);
+
+        return $totals;
+    }
+
+    /**
+     * Set all non-shipping totals to zero while preserving structure.
+     */
+    private function zero_out_totals_array($totals) {
+        if (!is_array($totals)) {
+            return $totals;
+        }
+
+        foreach ($totals as $key => $value) {
+            if (strpos($key, 'shipping') !== false) {
+                continue;
+            }
+
+            $totals[$key] = $this->format_total_amount($value, 0.0);
+        }
+
+        return $totals;
+    }
+
+    /**
+     * Update a single totals entry with a specific amount.
+     */
+    private function set_total_amount($totals, $key, $amount) {
+        if (!is_array($totals) || !array_key_exists($key, $totals)) {
+            return $totals;
+        }
+
+        $totals[$key] = $this->format_total_amount($totals[$key], $amount);
+
+        return $totals;
+    }
+
+    /**
+     * Format totals data while respecting its original structure.
+     */
+    private function format_total_amount($field, $amount) {
+        if (is_array($field)) {
+            foreach ($field as $key => $value) {
+                if (is_array($value)) {
+                    $field[$key] = $this->format_total_amount($value, $amount);
+                    continue;
+                }
+
+                if (in_array($key, array('value', 'amount', 'raw', 'total', 'subtotal'), true)) {
+                    $field[$key] = wc_format_decimal($amount, wc_get_price_decimals());
+                } elseif ($key === 'formatted') {
+                    $field[$key] = wp_strip_all_tags(wc_price($amount));
+                }
+            }
+
+            return $field;
+        }
+
+        if (is_numeric($field) || (is_string($field) && $this->string_is_numeric_like($field))) {
+            return wc_format_decimal($amount, wc_get_price_decimals());
+        }
+
+        return $field;
+    }
+
+    /**
+     * Quick helper to determine if a string looks numeric after removing currency symbols.
+     */
+    private function string_is_numeric_like($value) {
+        if (!is_string($value)) {
+            return false;
+        }
+
+        $normalized = preg_replace('/[^0-9\.,\-]/', '', $value);
+        $normalized = str_replace(',', '.', $normalized);
+
+        return $normalized !== '' && is_numeric($normalized);
+    }
+
+    /**
+     * Check if every cart item is being purchased with points.
+     */
+    private function cart_all_items_are_points_purchases($cart) {
+        $has_items = false;
+
+        foreach ($cart->get_cart() as $cart_item) {
+            if (!isset($cart_item['data']) || !is_a($cart_item['data'], 'WC_Product')) {
+                continue;
+            }
+
+            $has_items = true;
+
+            if (!$this->is_points_purchase($cart_item['data'], $cart_item)) {
+                return false;
+            }
+        }
+
+        return $has_items;
     }
 
     /**
