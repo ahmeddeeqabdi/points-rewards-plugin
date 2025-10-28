@@ -225,9 +225,23 @@ class PR_Product_Points_Cost {
         $product_id = $product->get_id();
         $points_cost = self::get_product_points_cost($product_id);
         $user_id = get_current_user_id();
-        $user_points_obj = PR_Points_Manager::get_user_points($user_id);
-        $registration_bonus = intval(get_option('pr_registration_points', 0));
-        $total_available_points = $user_points_obj->points + $registration_bonus;
+        
+        // Get total available points (properly handles manually set points)
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'user_points';
+        $user_record = $wpdb->get_row($wpdb->prepare(
+            "SELECT points, points_manually_set FROM $table_name WHERE user_id = %d",
+            $user_id
+        ));
+        
+        if (!$user_record) {
+            $total_available_points = intval(get_option('pr_registration_points', 0));
+        } elseif (intval($user_record->points_manually_set) === 1) {
+            $total_available_points = intval($user_record->points);
+        } else {
+            $registration_bonus = intval(get_option('pr_registration_points', 0));
+            $total_available_points = intval($user_record->points) + $registration_bonus;
+        }
 
         // Store this info for use in the purchase option
         echo '<script type="application/json" id="pr-product-points-cost-' . esc_attr($product_id) . '">';

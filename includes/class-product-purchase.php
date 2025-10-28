@@ -33,6 +33,10 @@ class PR_Product_Purchase {
         add_action('woocommerce_checkout_order_processed', array($this, 'process_points_payment'));
         add_action('woocommerce_checkout_create_order', array($this, 'apply_points_discount_to_order'), 10, 2);
         
+        // 5. Quantity validation for points purchases (HIGH PRIORITY = 100)
+        add_filter('woocommerce_add_to_cart_validation', array($this, 'validate_add_to_cart_points'), 100, 6);
+        add_action('woocommerce_before_calculate_totals', array($this, 'validate_points_purchase_quantities'), 100);
+        
         // ========================================================================
         // PART 2: WOOCOMMERCE BLOCKS / STORE API INTEGRATION
         // ========================================================================
@@ -185,14 +189,13 @@ class PR_Product_Purchase {
         if ($this->is_points_only_product($product)) {
             // For points-only products, show purchase button only if user has enough points
             $user_id = get_current_user_id();
-            $user_points = PR_Points_Manager::get_user_points($user_id);
             $product_id = $product->get_id();
             
             // Get the custom point cost (or calculated default)
             $required_points = PR_Product_Points_Cost::get_product_points_cost($product_id);
             
             // Get total available points (respecting manually set points flag)
-            $total_available_points = $this->get_user_total_available_points($user_id);
+            $total_available_points = PR_Points_Manager::get_user_total_points($user_id);
             
             if ($total_available_points >= $required_points) {
                 wp_nonce_field('pr_use_points_nonce', 'pr_points_nonce');
@@ -216,14 +219,13 @@ class PR_Product_Purchase {
             }
         } elseif ($this->can_purchase_with_points($product)) {
             $user_id = get_current_user_id();
-            $user_points = PR_Points_Manager::get_user_points($user_id);
             $product_id = $product->get_id();
             
             // Get the custom point cost (or calculated default)
             $required_points = PR_Product_Points_Cost::get_product_points_cost($product_id);
             
             // Get total available points (respecting manually set points flag)
-            $total_available_points = $this->get_user_total_available_points($user_id);
+            $total_available_points = PR_Points_Manager::get_user_total_points($user_id);
             
             wp_nonce_field('pr_use_points_nonce', 'pr_points_nonce');
             ?>
@@ -965,6 +967,226 @@ class PR_Product_Purchase {
     }
 
     /**
+     * Validate points availability BEFORE adding item to cart
+     * Prevents adding quantities that exceed customer's available points
+     * This runs on woocommerce_add_to_cart_validation (HIGH PRIORITY = 100)
+     */
+    public function validate_add_to_cart_points($passed, $product_id, $quantity, $variation_id = null, $variations = null, $cart_item_data = null) {
+        // Only validate if user is logged in
+        if (!is_user_logged_in()) {
+            return $passed;
+        }
+        
+        $user_id = get_current_user_id();
+        
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            return $passed; // Don't validate for revoked users
+        }
+        
+        // Get the product
+        $product = wc_get_product($variation_id ? $variation_id : $product_id);
+        if (!$product) {
+            return $passed;
+        }
+        
+        // Check if this product has an explicit points cost set
+        $explicit_cost = PR_Product_Points_Cost::get_explicit_custom_points_cost($product->get_id());
+        
+        // Validate ANY product that has an explicit points cost set
+        // This includes both points-only products and regular products configured for points purchase
+        if ($explicit_cost === false) {
+            return $passed; // No explicit points cost, allow normal purchase
+        }
+        
+        // Get points cost for this product (use explicit cost since we already validated it exists)
+        $points_cost = $explicit_cost;
+        
+        // Calculate points needed for this addition
+        $points_needed = $points_cost * $quantity;
+        
+        // Get user's available points (properly handles manually set points)
+        $available_points = PR_Points_Manager::get_user_total_points($user_id);
+        
+        // Calculate current points commitment from existing cart
+        $cart = WC()->cart;
+        $current_points_committed = 0;
+        
+        if ($cart) {
+            foreach ($cart->get_cart() as $cart_item) {
+                $cart_product = $cart_item['data'];
+                if (!$cart_product) continue;
+                
+                $cart_product_id = $cart_product->get_id();
+                
+                // Check if this cart item is points-based
+                $cart_is_points_only = $this->is_points_only_product($cart_product);
+                $cart_can_use_points = false;
+                
+                if (!$cart_is_points_only && $this->can_purchase_with_points($cart_product)) {
+                    // Check if they chose to use points for this item
+                    $use_points = isset($cart_item['pr_use_points']) ? $cart_item['pr_use_points'] : 'no';
+                    $cart_can_use_points = ($use_points === 'yes');
+                }
+                
+                if ($cart_is_points_only || $cart_can_use_points) {
+                    $cart_points_cost = PR_Product_Points_Cost::get_product_points_cost($cart_product_id);
+                    if ($cart_points_cost > 0) {
+                        $current_points_committed += $cart_points_cost * $cart_item['quantity'];
+                    }
+                }
+            }
+        }
+        // Check if they have enough points for this addition
+        $total_points_after_addition = $current_points_committed + $points_needed;
+        
+        if ($total_points_after_addition > $available_points) {
+            $max_quantity = intval(floor(($available_points - $current_points_committed) / $points_cost));
+            
+            if ($max_quantity <= 0) {
+                wc_add_notice(
+                    sprintf(
+                        __('You don\'t have enough points for this item. You have %d points available and need %d points.', 'ahmeds-pointsystem'),
+                        $available_points,
+                        $points_needed
+                    ),
+                    'error'
+                );
+                return false;
+            } else {
+                wc_add_notice(
+                    sprintf(
+                        __('You can only add %d of this item with your available points (%d). You currently have %d points committed to other items.', 'ahmeds-pointsystem'),
+                        $max_quantity,
+                        $available_points,
+                        $current_points_committed
+                    ),
+                    'error'
+                );
+                return false;
+            }
+        }
+        
+        return $passed;
+    }
+
+    /**
+     * Validate and enforce quantity limits for points purchases
+     * Removes items or reduces quantities if customer doesn't have enough points
+     * This runs on woocommerce_before_calculate_totals (HIGH PRIORITY = 100)
+     */
+    public function validate_points_purchase_quantities() {
+        $cart = WC()->cart;
+        if (!$cart || $cart->is_empty()) return;
+        
+        if (!is_user_logged_in()) return;
+        
+        $user_id = get_current_user_id();
+        
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            return; // Don't process for revoked users
+        }
+        
+        // Get user's available points (properly handles manually set points)
+        $available_points = PR_Points_Manager::get_user_total_points($user_id);
+        
+        // Calculate total points needed for all points-based items in cart
+        $total_points_needed = 0;
+        $points_items = array();
+        
+        foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+            $product = $cart_item['data'];
+            if (!$product) continue;
+            
+            $product_id = $product->get_id();
+            
+            // Check if this is a points-only product
+            if ($this->is_points_only_product($product)) {
+                $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
+                if ($points_cost > 0) {
+                    $item_points = $points_cost * $cart_item['quantity'];
+                    $total_points_needed += $item_points;
+                    $points_items[$cart_item_key] = array(
+                        'product_id' => $product_id,
+                        'cost_per_unit' => $points_cost,
+                        'quantity' => $cart_item['quantity'],
+                        'total_cost' => $item_points,
+                    );
+                }
+            }
+            // Also check regular products that customer chose to pay with points
+            elseif ($this->can_purchase_with_points($product)) {
+                // Check if they specifically chose to use points (this would be stored on cart item)
+                $use_points = $cart_item->get_meta('_pr_use_points');
+                if ($use_points === 'yes') {
+                    $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
+                    if ($points_cost > 0) {
+                        $item_points = $points_cost * $cart_item['quantity'];
+                        $total_points_needed += $item_points;
+                        $points_items[$cart_item_key] = array(
+                            'product_id' => $product_id,
+                            'cost_per_unit' => $points_cost,
+                            'quantity' => $cart_item['quantity'],
+                            'total_cost' => $item_points,
+                        );
+                    }
+                }
+            }
+        }
+        
+        // If customer doesn't have enough points, remove or reduce items
+        if ($total_points_needed > $available_points && !empty($points_items)) {
+            $remaining_points = $available_points;
+            
+            // Iterate through points items and adjust quantities
+            foreach ($points_items as $cart_item_key => $item_info) {
+                $cost_per_unit = $item_info['cost_per_unit'];
+                $current_quantity = $item_info['quantity'];
+                
+                if ($remaining_points <= 0) {
+                    // Remove item entirely
+                    $cart->remove_cart_item($cart_item_key);
+                    WC()->session->set('_pr_quantity_limited', true);
+                } else {
+                    // Calculate max affordable quantity with remaining points
+                    $max_quantity = intval(floor($remaining_points / $cost_per_unit));
+                    
+                    if ($max_quantity < $current_quantity) {
+                        if ($max_quantity > 0) {
+                            // Reduce quantity to what they can afford
+                            $cart->set_quantity($cart_item_key, $max_quantity);
+                            $remaining_points -= ($max_quantity * $cost_per_unit);
+                            WC()->session->set('_pr_quantity_limited', true);
+                        } else {
+                            // Can't afford any at current quantity
+                            $cart->remove_cart_item($cart_item_key);
+                            WC()->session->set('_pr_quantity_limited', true);
+                        }
+                    } else {
+                        // They can afford current quantity
+                        $remaining_points -= ($current_quantity * $cost_per_unit);
+                    }
+                }
+            }
+            
+            // Show customer-facing notice if quantities were limited
+            if (WC()->session->get('_pr_quantity_limited')) {
+                wc_add_notice(
+                    sprintf(
+                        __('Your cart quantities have been adjusted because you don\'t have enough points. You have %d available points.', 'ahmeds-pointsystem'),
+                        $available_points
+                    ),
+                    'notice'
+                );
+                WC()->session->set('_pr_quantity_limited', false);
+            }
+        }
+    }
+
+    /**
      * Add points payment option to cart page
      */
     public function add_cart_points_option() {
@@ -1001,9 +1223,7 @@ class PR_Product_Purchase {
         if (!$has_eligible_products) return;
 
         $user_id = get_current_user_id();
-        $user_points = PR_Points_Manager::get_user_points($user_id);
-        $registration_bonus = intval(get_option('pr_registration_points', 0));
-        $total_available_points = $user_points->points + $registration_bonus;
+        $total_available_points = $this->get_user_total_available_points($user_id);
 
         $can_afford = $total_available_points >= $total_points_needed;
         $use_points = WC()->session->get('pr_use_points_for_cart', false);
@@ -1256,13 +1476,20 @@ class PR_Product_Purchase {
     /**
      * Check if cart has any points-only products
      */
-    private function cart_has_points_only_products() {
+    /**
+     * Check if cart has any products with explicit points costs
+     */
+    private function cart_has_points_products() {
         $cart = WC()->cart;
         if (!$cart) return false;
         
         foreach ($cart->get_cart() as $cart_item) {
             $product = $cart_item['data'];
-            if ($this->is_points_only_product($product)) {
+            if (!$product) continue;
+            
+            // Check if product has explicit points cost
+            $explicit_cost = PR_Product_Points_Cost::get_explicit_custom_points_cost($product->get_id());
+            if ($explicit_cost !== false) {
                 return true;
             }
         }
@@ -1270,13 +1497,38 @@ class PR_Product_Purchase {
     }
 
     /**
+     * Calculate total points needed for all products with explicit points costs in cart
+     */
+    private function calculate_cart_points_needed() {
+        $cart = WC()->cart;
+        if (!$cart) return 0;
+        
+        $total_points = 0;
+        
+        foreach ($cart->get_cart() as $cart_item) {
+            $product = $cart_item['data'];
+            if (!$product) continue;
+            
+            // Check if product has explicit points cost
+            $explicit_cost = PR_Product_Points_Cost::get_explicit_custom_points_cost($product->get_id());
+            if ($explicit_cost !== false) {
+                $total_points += $explicit_cost * $cart_item['quantity'];
+            }
+        }
+        
+        return $total_points;
+    }
+
+    /**
      * Display payment method note at checkout (top position)
      */
     public function checkout_payment_methods_top() {
-        if ($this->cart_has_points_only_products()) {
+        if ($this->cart_has_points_products()) {
+            $total_points_needed = $this->calculate_cart_points_needed();
+            $user_points = $this->get_user_total_available_points(get_current_user_id());
             ?>
             <div class="pr-checkout-points-notice" style="margin-bottom: 20px;">
-                <p><strong>💡 Points-Only Products:</strong> Some items in your cart will be purchased using your points balance. You will only pay for any applicable shipping costs.</p>
+                <p><strong>⭐ Points Purchase:</strong> You are purchasing products using points. Total points needed: <?php echo $total_points_needed; ?>. Your current balance: <?php echo $user_points; ?> points.</p>
             </div>
             <?php
         }
@@ -1286,10 +1538,12 @@ class PR_Product_Purchase {
      * Display payment method note at checkout
      */
     public function checkout_payment_methods() {
-        if ($this->cart_has_points_only_products()) {
+        if ($this->cart_has_points_products()) {
+            $total_points_needed = $this->calculate_cart_points_needed();
+            $user_points = $this->get_user_total_available_points(get_current_user_id());
             ?>
             <div class="pr-checkout-points-notice">
-                <p><strong>💡 Points-Only Products:</strong> Some items in your cart will be purchased using your points balance. You will only pay for any applicable shipping costs.</p>
+                <p><strong>⭐ Points Purchase:</strong> You are purchasing products using points. Total points needed: <?php echo $total_points_needed; ?>. Your current balance: <?php echo $user_points; ?> points.</p>
             </div>
             <?php
         }

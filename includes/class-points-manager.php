@@ -88,22 +88,33 @@ class PR_Points_Manager {
         }
     }
 
-    public static function get_user_points($user_id) {
+    public static function get_user_total_points($user_id) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'user_points';
         
-        $result = $wpdb->get_row(
-            $wpdb->prepare("SELECT * FROM $table_name WHERE user_id = %d", $user_id)
-        );
+        $user_record = $wpdb->get_row($wpdb->prepare(
+            "SELECT points, points_manually_set FROM $table_name WHERE user_id = %d",
+            $user_id
+        ));
         
-        if ($result === null && $wpdb->last_error) {
-            error_log("Points & Rewards: Failed to get points for user $user_id: " . $wpdb->last_error);
+        if (!$user_record) {
+            // User has no record, return registration bonus
+            $registration_bonus = intval(get_option('pr_registration_points', 0));
+            error_log("Points & Rewards: User $user_id has no record, returning registration bonus: $registration_bonus");
+            return $registration_bonus;
         }
         
-        return $result ? (object) array(
-            'points' => (int) $result->points,
-            'redeemed_points' => (int) $result->redeemed_points
-        ) : (object) array('points' => 0, 'redeemed_points' => 0);
+        // If points were manually set by admin, use them as-is (they already include bonus)
+        if (intval($user_record->points_manually_set) === 1) {
+            error_log("Points & Rewards: User $user_id has manually set points: " . intval($user_record->points));
+            return intval($user_record->points);
+        } else {
+            // Otherwise, add the registration bonus to earned points
+            $registration_bonus = intval(get_option('pr_registration_points', 0));
+            $total_points = intval($user_record->points) + $registration_bonus;
+            error_log("Points & Rewards: User $user_id earned points: " . intval($user_record->points) . ", bonus: $registration_bonus, total: $total_points");
+            return $total_points;
+        }
     }
 
     public static function redeem_points($user_id, $points) {

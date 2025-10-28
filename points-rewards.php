@@ -174,18 +174,39 @@ class Points_Rewards_Plugin {
             array(),
             '1.0.0'
         );
-        
-        // Enqueue frontend script for cart/checkout functionality
-        wp_enqueue_script(
-            'pr-frontend-script',
-            PR_PLUGIN_URL . 'assets/js/admin-script.js',
-            array('jquery'),
+
+        // Only enqueue checkout block scripts on checkout/cart pages
+        if (!is_checkout() && !is_cart()) {
+            return;
+        }
+
+        // Register scripts for WooCommerce Blocks
+        wp_register_script(
+            'pr-checkout-points-component',
+            PR_PLUGIN_URL . 'assets/js/checkout-points-section.js',
+            array('wp-element'),
             '1.0.0',
             true
         );
-        
+
+        wp_register_script(
+            'pr-register-checkout-section',
+            PR_PLUGIN_URL . 'assets/js/register-checkout-section.js',
+            array(
+                'wp-plugins',
+                'wc-blocks-checkout',
+                'pr-checkout-points-component'
+            ),
+            '1.0.0',
+            true
+        );
+
+        // Enqueue the scripts
+        wp_enqueue_script('pr-checkout-points-component');
+        wp_enqueue_script('pr-register-checkout-section');
+
         // Localize script for AJAX
-        wp_localize_script('pr-frontend-script', 'pr_ajax', array(
+        wp_localize_script('pr-register-checkout-section', 'pr_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('pr_points_payment_nonce')
         ));
