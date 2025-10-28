@@ -135,7 +135,7 @@ class PR_Blocks_Integration {
         if ($has_points_products) {
             $user_points = PR_Points_Manager::get_user_total_points(get_current_user_id());
             $notice = sprintf(
-                __('You are purchasing products using points. Total points needed: %d. Your current balance: %d points.', 'points-rewards'),
+                __('Du køber produkter med point. I alt nødvendige point: %d. Din aktuelle saldo: %d point.', 'points-rewards'),
                 $total_points_needed,
                 $user_points
             );
@@ -253,7 +253,7 @@ class PR_Blocks_Integration {
         }
 
         return sprintf(
-            __('⭐ You are purchasing products using points. Total points needed: %d. Your current balance: %d points.', 'points-rewards'),
+            __('⭐ Du køber produkter med point. I alt nødvendige point: %d. Din aktuelle saldo: %d point.', 'points-rewards'),
             $total_points_needed,
             $user_points
         );
@@ -304,7 +304,7 @@ class PR_Blocks_Integration {
             }
 
             $notice = sprintf(
-                __('⭐ You are purchasing products using points. Total points needed: %d. Your current balance: %d points.', 'points-rewards'),
+                __('⭐ Du køber produkter med point. I alt nødvendige point: %d. Din aktuelle saldo: %d point.', 'points-rewards'),
                 $total_points_needed,
                 $user_points
             );
@@ -488,7 +488,7 @@ class PR_Blocks_Integration {
                             </div>
                             <div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">
                                 <?php printf(
-                                    __('Total points needed: %d • Your balance: %d points', 'points-rewards'),
+                                    __('I alt nødvendige point: %d • Din saldo: %d point', 'points-rewards'),
                                     $total_points_needed,
                                     $user_points
                                 ); ?>
@@ -568,7 +568,7 @@ class PR_Blocks_Integration {
                             </div>
                             <div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">
                                 <?php printf(
-                                    __('Total points needed: %d • Your balance: %d points', 'points-rewards'),
+                                    __('I alt nødvendige point: %d • Din saldo: %d point', 'points-rewards'),
                                     $total_points_needed,
                                     $user_points
                                 ); ?>
@@ -621,8 +621,8 @@ class PR_Blocks_Integration {
             $notice_html .= '<div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(255,255,255,0.05) 0%, transparent 50%); opacity: 0.5;"></div>';
             $notice_html .= '<div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 12px;">';
             $notice_html .= '<div style="flex-shrink: 0;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="white"/></svg></div>';
-            $notice_html .= '<div style="flex: 1;"><div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; opacity: 0.9;">' . __('Points Purchase', 'points-rewards') . '</div>';
-            $notice_html .= '<div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">' . sprintf(__('Total points needed: %d • Your balance: %d points', 'points-rewards'), $total_points_needed, $user_points) . '</div></div></div></div></div>';
+            $notice_html .= '<div style="flex: 1;"><div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; opacity: 0.9;">' . __('Pointindkøb', 'points-rewards') . '</div>';
+            $notice_html .= '<div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">' . sprintf(__('I alt nødvendige point: %d • Din saldo: %d point', 'points-rewards'), $total_points_needed, $user_points) . '</div></div></div></div></div>';
 
             // Insert the notice after the opening div of the checkout block, but before the first inner block
             // This should place it at the top of the checkout form without breaking layout
@@ -707,7 +707,7 @@ class PR_Blocks_Integration {
                             </div>
                             <div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">
                                 <?php printf(
-                                    __('Total points needed: %d • Your balance: %d points', 'points-rewards'),
+                                    __('I alt nødvendige point: %d • Din saldo: %d point', 'points-rewards'),
                                     $total_points_needed,
                                     $user_points
                                 ); ?>

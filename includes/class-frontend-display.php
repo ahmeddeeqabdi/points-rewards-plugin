@@ -118,7 +118,7 @@ class PR_Frontend_Display {
     }
 
     public function add_point_log_menu_item($items) {
-        $items['point-log'] = __('Point Log', 'ahmeds-pointsystem');
+        $items['point-log'] = __('Pointlog', 'ahmeds-pointsystem');
         return $items;
     }
 

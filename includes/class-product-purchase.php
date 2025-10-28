@@ -142,10 +142,8 @@ class PR_Product_Purchase {
                         },
                         success: function(response) {
                             if (response.success && response.data.points_cost) {
-                                // Update the woocommerce-variation-price element
-                                $(".woocommerce-variation-price").html(
-                                    "<span class=\"pr-points-price\">" + response.data.points_cost + " points</span>"
-                                );
+                                // On single product page, do not show the price span
+                                $(".woocommerce-variation-price").html("");
                             }
                         }
                     });
@@ -215,16 +213,16 @@ class PR_Product_Purchase {
                         name="pr_purchase_with_points" 
                         value="yes" 
                         class="single_add_to_cart_button button alt">
-                    Purchase with <?php echo $required_points; ?> points
+                    <?php printf(__('Køb med %d point', 'ahmeds-pointsystem'), $required_points); ?>
                 </button>
-                <p class="pr-points-info">You have: <?php echo $total_available_points; ?> points available</p>
+                <p class="pr-points-info" style="margin-top: 8px; white-space: nowrap;"><?php printf(__('Du har %d point', 'ahmeds-pointsystem'), $total_available_points); ?></p>
                 <?php
             } else {
                 ?>
                 <div class="pr-insufficient-points">
-                    <p class="pr-points-required">Requires <?php echo $required_points; ?> points</p>
-                    <p class="pr-points-available">You have: <?php echo $total_available_points; ?> points</p>
-                    <p class="pr-earn-more">Earn more points by making purchases to unlock this item.</p>
+                    <p class="pr-points-required"><?php printf(__('Kræver %d point', 'ahmeds-pointsystem'), $required_points); ?></p>
+                    <p class="pr-points-available"><?php printf(__('Du har: %d point', 'ahmeds-pointsystem'), $total_available_points); ?></p>
+                    <p class="pr-earn-more"><?php _e('Tjener flere point ved at foretage køb for at låse denne vare op.', 'ahmeds-pointsystem'); ?></p>
                 </div>
                 <?php
             }
@@ -246,8 +244,7 @@ class PR_Product_Purchase {
                            name="pr_use_points" 
                            value="yes" 
                            <?php echo $total_available_points < $required_points ? 'disabled' : ''; ?> />
-                    Purchase with <?php echo $required_points; ?> points 
-                    (You have: <?php echo $total_available_points; ?> points)
+                    <?php printf(__('Køb med %d point (Du har: %d point)', 'ahmeds-pointsystem'), $required_points, $total_available_points); ?>
                 </label>
             </div>
             <?php
@@ -589,6 +586,11 @@ class PR_Product_Purchase {
         }
         
         if ($this->is_points_only_product($product)) {
+            // On single product page, hide the price span
+            if (is_product()) {
+                return '';
+            }
+            // On listing/category pages, show the points price
             $points_cost = PR_Product_Points_Cost::get_product_points_cost($product->get_id());
             return '<span class="pr-points-price">' . esc_html($points_cost) . ' points</span>';
         }
@@ -992,7 +994,7 @@ class PR_Product_Purchase {
             $product = wc_get_product($product_id);
             if ($product && $this->is_points_only_product($product)) {
                 // User tried to add a points-only product without the points purchase button
-                wc_add_notice('This product can only be purchased with points. Please use the "Purchase with points" button.', 'error');
+            wc_add_notice(__('Dette produkt kan kun købes med point. Brug venligst knappen "Køb med point".', 'ahmeds-pointsystem'), 'error');
                 return false; // Prevent adding to cart
             }
         }
@@ -1082,7 +1084,7 @@ class PR_Product_Purchase {
             PR_Points_Manager::redeem_points($user_id, $points_used);
             
             // Add order note
-            $order->add_order_note(sprintf(__('Customer used %d points for this purchase.', 'ahmeds-pointsystem'), $points_used));
+            $order->add_order_note(sprintf(__('Kunde brugte %d point til dette køb.', 'ahmeds-pointsystem'), $points_used));
             
             // Store points used in order meta
             $order->update_meta_data('_pr_points_used', $points_used);
@@ -1153,7 +1155,7 @@ class PR_Product_Purchase {
         if ($points_cost <= 0) {
             error_log("Points validation: Product $product_id does not have a valid points cost configured");
             wc_add_notice(
-                __('This product is not configured for points redemption. Please contact support.', 'ahmeds-pointsystem'),
+                __('Dette produkt er ikke konfigureret til point-indløsning. Kontakt venligst support.', 'ahmeds-pointsystem'),
                 'error'
             );
             return false;
@@ -1269,7 +1271,7 @@ class PR_Product_Purchase {
         if ($snapshot_after['total_points'] > $available_points) {
             wc_add_notice(
                 sprintf(
-                    __('You don\'t have enough points. You have %d points but still need %d. Please review your cart.', 'ahmeds-pointsystem'),
+                    __('Du har ikke nok point. Du har %d point, men skal bruge %d. Gennemgå venligst din indkøbskurv.', 'ahmeds-pointsystem'),
                     $available_points,
                     $snapshot_after['total_points']
                 ),
@@ -1316,7 +1318,7 @@ class PR_Product_Purchase {
         if ($total_points_needed > $available_points) {
             wc_add_notice(
                 sprintf(
-                    __('You don\'t have enough points to complete this purchase. You have %d points but need %d. Please remove some items or earn more points.', 'ahmeds-pointsystem'),
+                    __('Du har ikke nok point til at gennemføre dette køb. Du har %d point, men skal bruge %d. Fjern venligst nogle varer eller tjener flere point.', 'ahmeds-pointsystem'),
                     $available_points,
                     $total_points_needed
                 ),
@@ -1371,7 +1373,7 @@ class PR_Product_Purchase {
             $quantity = $item['quantity'];
             $product_name = isset($cart_item['data']) && is_a($cart_item['data'], 'WC_Product')
                 ? $cart_item['data']->get_name()
-                : __('this item', 'ahmeds-pointsystem');
+                : __('denne vare', 'ahmeds-pointsystem');
 
             if ($cost_per_unit <= 0 || $quantity <= 0) {
                 continue;
@@ -1383,7 +1385,7 @@ class PR_Product_Purchase {
                 $cart->remove_cart_item($cart_item_key);
                 $adjusted = true;
                 $adjustment_messages[] = sprintf(
-                    __('Removed %1$s because your points balance was fully used.', 'ahmeds-pointsystem'),
+                    __('Fjernet %1$s fordi dit pointkonto var helt brugt.', 'ahmeds-pointsystem'),
                     esc_html($product_name)
                 );
                 error_log("Points cart validation: Removed item $cart_item_key due to zero remaining points");
@@ -1404,7 +1406,7 @@ class PR_Product_Purchase {
                 $cumulative_points += $cost_per_unit * $max_quantity;
                 $adjusted = true;
                 $adjustment_messages[] = sprintf(
-                    __('Reduced %1$s to quantity %2$d because only %3$d points were left.', 'ahmeds-pointsystem'),
+                    __('Reduceret %1$s til antal %2$d fordi kun %3$d point var tilbage.', 'ahmeds-pointsystem'),
                     esc_html($product_name),
                     $max_quantity,
                     $remaining_points
@@ -1414,7 +1416,7 @@ class PR_Product_Purchase {
                 $cart->remove_cart_item($cart_item_key);
                 $adjusted = true;
                 $adjustment_messages[] = sprintf(
-                    __('Removed %1$s because it requires %2$d points but only %3$d were left.', 'ahmeds-pointsystem'),
+                    __('Fjernet %1$s fordi det kræver %2$d point, men kun %3$d var tilbage.', 'ahmeds-pointsystem'),
                     esc_html($product_name),
                     $cost_per_unit,
                     $remaining_points
@@ -1431,7 +1433,7 @@ class PR_Product_Purchase {
 
             wc_add_notice(
                 sprintf(
-                    __('We kept your cart within your %1$d available points.%2$s', 'ahmeds-pointsystem'),
+                    __('Vi holdt din indkøbskurv inden for dine %1$d tilgængelige point.%2$s', 'ahmeds-pointsystem'),
                     $available_points,
                     $detail_message
                 ),
@@ -1617,7 +1619,7 @@ class PR_Product_Purchase {
         }
 
         if ($total_discount > 0) {
-            $cart->add_fee(__('Points Discount', 'ahmeds-pointsystem'), -$total_discount, true, '');
+            $cart->add_fee(__('Pointrabat', 'ahmeds-pointsystem'), -$total_discount, true, '');
         }
     }
 
@@ -1697,7 +1699,7 @@ class PR_Product_Purchase {
 
         if ($total_discount > 0) {
             // Add a negative fee for the points discount
-            $order->add_fee(__('Points Discount', 'ahmeds-pointsystem'), -$total_discount, true, '');
+            $order->add_fee(__('Pointrabat', 'ahmeds-pointsystem'), -$total_discount, true, '');
             
             // Store points information in order meta
             $order->update_meta_data('_pr_points_used', $points_used);
