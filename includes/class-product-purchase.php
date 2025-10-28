@@ -36,6 +36,17 @@ class PR_Product_Purchase {
         // 5. Quantity validation for points purchases (HIGH PRIORITY = 100)
         add_filter('woocommerce_add_to_cart_validation', array($this, 'validate_add_to_cart_points'), 100, 6);
         add_action('woocommerce_before_calculate_totals', array($this, 'validate_points_purchase_quantities'), 100);
+        add_action('woocommerce_checkout_process', array($this, 'validate_checkout_points'), 100);
+        
+        // 5b. Intercept AJAX add-to-cart requests (for side cart plugins and custom AJAX)
+    add_action('woocommerce_ajax_added_to_cart', array($this, 'validate_ajax_add_to_cart'), 10, 1);
+    add_action('wp_ajax_woocommerce_add_to_cart', array($this, 'validate_ajax_request'), 1);
+    add_action('wp_ajax_nopriv_woocommerce_add_to_cart', array($this, 'validate_ajax_request'), 1);
+    add_action('wp_ajax_xoo_wsc_add_to_cart', array($this, 'validate_ajax_request'), 1);
+    add_action('wp_ajax_nopriv_xoo_wsc_add_to_cart', array($this, 'validate_ajax_request'), 1);
+        
+        // 6. Capture points purchase data when adding to cart
+        add_filter('woocommerce_add_cart_item_data', array($this, 'add_points_purchase_data_to_cart'), 10, 3);
         
         // ========================================================================
         // PART 2: WOOCOMMERCE BLOCKS / STORE API INTEGRATION
@@ -295,8 +306,56 @@ class PR_Product_Purchase {
     }
 
     /**
-     * Get user's total available points, respecting manually set points flag
+     * Capture points purchase data when adding to cart
      */
+    public function add_points_purchase_data_to_cart($cart_item_data, $product_id, $variation_id) {
+        error_log("Points cart data: add_points_purchase_data_to_cart called for product $product_id");
+        
+        $session = (is_user_logged_in() && WC()->session);
+        $cart_toggle_active = $session ? (bool) WC()->session->get('pr_use_points_for_cart', false) : false;
+        $using_points = false;
+
+        // Check if the user selected to purchase with points via product form submission
+        if (isset($_POST['pr_use_points']) && $_POST['pr_use_points'] === 'yes') {
+            if (isset($_POST['pr_points_nonce']) && wp_verify_nonce($_POST['pr_points_nonce'], 'pr_use_points_nonce')) {
+                $cart_item_data['pr_use_points'] = 'yes';
+                $using_points = true;
+                error_log("Points cart data: Added pr_use_points=yes to cart item data");
+            } else {
+                error_log("Points cart data: Nonce verification failed for pr_use_points submission");
+            }
+        }
+
+        // Points-only button submission
+        if (!$using_points && isset($_POST['pr_purchase_with_points']) && $_POST['pr_purchase_with_points'] === 'yes') {
+            if (isset($_POST['pr_points_nonce']) && wp_verify_nonce($_POST['pr_points_nonce'], 'pr_use_points_nonce')) {
+                $cart_item_data['pr_use_points'] = 'yes';
+                $using_points = true;
+                error_log("Points cart data: Points-only product flagged as points purchase");
+            } else {
+                error_log("Points cart data: Nonce verification failed for points-only submission");
+            }
+        }
+
+        // Cart-level toggle applies points to all eligible items (covers Store API / blocks submissions)
+        if (!$using_points && $cart_toggle_active) {
+            $product = wc_get_product($variation_id ? $variation_id : $product_id);
+            if ($product && $this->can_purchase_with_points($product)) {
+                $cart_item_data['pr_use_points'] = 'yes';
+                $using_points = true;
+                error_log("Points cart data: Cart-wide toggle forced points usage for product $product_id");
+            }
+        }
+
+        if ($using_points) {
+            error_log("Points cart data: Product $product_id marked for points redemption");
+        } else {
+            error_log("Points cart data: No points usage detected for product $product_id during add-to-cart");
+        }
+        
+        return $cart_item_data;
+    }
+    
     private function get_user_total_available_points($user_id) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'user_points';
@@ -328,6 +387,70 @@ class PR_Product_Purchase {
         $total = $points + $registration_bonus;
         error_log("Points Debug: Adding registration bonus ($registration_bonus) to earned points ($points) = $total");
         return $total;
+    }
+
+    /**
+     * Gather a snapshot of all cart items currently using points.
+     * Returns an array with item metadata and the total points committed.
+     */
+    private function get_points_cart_snapshot($cart) {
+        $snapshot = array(
+            'items' => array(),
+            'total_points' => 0,
+        );
+
+        if (!$cart || !is_a($cart, 'WC_Cart')) {
+            return $snapshot;
+        }
+
+        $cart_toggle_active = (is_user_logged_in() && WC()->session) ? (bool) WC()->session->get('pr_use_points_for_cart', false) : false;
+
+    // Iterate in cart order so previously validated items remain untouched
+    foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+            if (!isset($cart_item['data']) || !is_a($cart_item['data'], 'WC_Product')) {
+                continue;
+            }
+
+            $product = $cart_item['data'];
+            $product_id = $product->get_id();
+            $quantity = isset($cart_item['quantity']) ? intval($cart_item['quantity']) : 0;
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            $uses_points = false;
+
+            if ($this->is_points_only_product($product)) {
+                $uses_points = true;
+            } elseif (isset($cart_item['pr_use_points']) && $cart_item['pr_use_points'] === 'yes') {
+                $uses_points = true;
+            } elseif ($cart_toggle_active && $this->can_purchase_with_points($product)) {
+                $uses_points = true;
+            }
+
+            if (!$uses_points) {
+                continue;
+            }
+
+            $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
+            if ($points_cost <= 0) {
+                continue;
+            }
+
+            $total_cost = $points_cost * $quantity;
+
+            $snapshot['items'][$cart_item_key] = array(
+                'product_id' => $product_id,
+                'variation_id' => $product->is_type('variation') ? $product->get_id() : 0,
+                'quantity' => $quantity,
+                'cost_per_unit' => $points_cost,
+                'total_cost' => $total_cost,
+            );
+
+            $snapshot['total_points'] += $total_cost;
+        }
+
+        return $snapshot;
     }
 
     /**
@@ -439,7 +562,8 @@ class PR_Product_Purchase {
         }
         
         // Loop through cart items
-        foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+    // Iterate in cart order so earlier redemptions remain intact
+    foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
             if (!isset($cart_item['data']) || !is_a($cart_item['data'], 'WC_Product')) {
                 continue;
             }
@@ -972,103 +1096,233 @@ class PR_Product_Purchase {
      * This runs on woocommerce_add_to_cart_validation (HIGH PRIORITY = 100)
      */
     public function validate_add_to_cart_points($passed, $product_id, $quantity, $variation_id = null, $variations = null, $cart_item_data = null) {
+        error_log("Points validation: validate_add_to_cart_points called for product $product_id, quantity $quantity");
+
         // Only validate if user is logged in
         if (!is_user_logged_in()) {
+            error_log("Points validation: User not logged in, allowing");
             return $passed;
         }
-        
+
         $user_id = get_current_user_id();
-        
+
         // Check if user is revoked
         $user_management = new PR_User_Management();
         if ($user_management->is_user_revoked($user_id)) {
             return $passed; // Don't validate for revoked users
         }
-        
+
         // Get the product
         $product = wc_get_product($variation_id ? $variation_id : $product_id);
         if (!$product) {
             return $passed;
         }
-        
-        // Check if this product has an explicit points cost set
-        $explicit_cost = PR_Product_Points_Cost::get_explicit_custom_points_cost($product->get_id());
-        
-        // Validate ANY product that has an explicit points cost set
-        // This includes both points-only products and regular products configured for points purchase
-        if ($explicit_cost === false) {
-            return $passed; // No explicit points cost, allow normal purchase
+
+        $quantity = max(1, intval($quantity));
+
+        $points_cost = PR_Product_Points_Cost::get_product_points_cost($product->get_id());
+        $is_points_only = $this->is_points_only_product($product);
+        $can_purchase_with_points = $this->can_purchase_with_points($product);
+
+        // Determine if customer intends to use points for this addition
+        $request_use_points = false;
+        if (isset($_REQUEST['pr_use_points']) && sanitize_text_field($_REQUEST['pr_use_points']) === 'yes') {
+            $request_use_points = true;
         }
-        
-        // Get points cost for this product (use explicit cost since we already validated it exists)
-        $points_cost = $explicit_cost;
-        
-        // Calculate points needed for this addition
-        $points_needed = $points_cost * $quantity;
-        
-        // Get user's available points (properly handles manually set points)
-        $available_points = PR_Points_Manager::get_user_total_points($user_id);
-        
-        // Calculate current points commitment from existing cart
+        if (isset($_REQUEST['pr_purchase_with_points']) && sanitize_text_field($_REQUEST['pr_purchase_with_points']) === 'yes') {
+            $request_use_points = true;
+        }
+
+        $cart_toggle_active = (is_user_logged_in() && WC()->session) ? (bool) WC()->session->get('pr_use_points_for_cart', false) : false;
+
+        $addition_uses_points = false;
+        if ($is_points_only) {
+            $addition_uses_points = true;
+        } elseif ($can_purchase_with_points && ($request_use_points || $cart_toggle_active)) {
+            $addition_uses_points = true;
+        }
+
+        error_log("Points validation: Product is_points_only: " . ($is_points_only ? 'yes' : 'no') . ", can_purchase_with_points: " . ($can_purchase_with_points ? 'yes' : 'no') . ", request_use_points: " . ($request_use_points ? 'yes' : 'no') . ", addition_uses_points: " . ($addition_uses_points ? 'yes' : 'no'));
+
+        // If this addition doesn't use points, allow it
+        if (!$addition_uses_points) {
+            error_log("Points validation: Addition will not use points, allowing");
+            return $passed;
+        }
+
+        if ($points_cost <= 0) {
+            error_log("Points validation: Product $product_id does not have a valid points cost configured");
+            wc_add_notice(
+                __('This product is not configured for points redemption. Please contact support.', 'ahmeds-pointsystem'),
+                'error'
+            );
+            return false;
+        }
+
+        // Calculate existing points commitment
         $cart = WC()->cart;
-        $current_points_committed = 0;
-        
-        if ($cart) {
-            foreach ($cart->get_cart() as $cart_item) {
-                $cart_product = $cart_item['data'];
-                if (!$cart_product) continue;
-                
-                $cart_product_id = $cart_product->get_id();
-                
-                // Check if this cart item is points-based
-                $cart_is_points_only = $this->is_points_only_product($cart_product);
-                $cart_can_use_points = false;
-                
-                if (!$cart_is_points_only && $this->can_purchase_with_points($cart_product)) {
-                    // Check if they chose to use points for this item
-                    $use_points = isset($cart_item['pr_use_points']) ? $cart_item['pr_use_points'] : 'no';
-                    $cart_can_use_points = ($use_points === 'yes');
-                }
-                
-                if ($cart_is_points_only || $cart_can_use_points) {
-                    $cart_points_cost = PR_Product_Points_Cost::get_product_points_cost($cart_product_id);
-                    if ($cart_points_cost > 0) {
-                        $current_points_committed += $cart_points_cost * $cart_item['quantity'];
-                    }
-                }
-            }
-        }
-        // Check if they have enough points for this addition
-        $total_points_after_addition = $current_points_committed + $points_needed;
-        
-        if ($total_points_after_addition > $available_points) {
-            $max_quantity = intval(floor(($available_points - $current_points_committed) / $points_cost));
-            
-            if ($max_quantity <= 0) {
-                wc_add_notice(
-                    sprintf(
-                        __('You don\'t have enough points for this item. You have %d points available and need %d points.', 'ahmeds-pointsystem'),
-                        $available_points,
-                        $points_needed
-                    ),
-                    'error'
-                );
-                return false;
-            } else {
-                wc_add_notice(
-                    sprintf(
-                        __('You can only add %d of this item with your available points (%d). You currently have %d points committed to other items.', 'ahmeds-pointsystem'),
-                        $max_quantity,
-                        $available_points,
-                        $current_points_committed
-                    ),
-                    'error'
-                );
-                return false;
-            }
-        }
-        
+        $snapshot = $this->get_points_cart_snapshot($cart);
+        $current_points_committed = $snapshot['total_points'];
+
+        // Determine how many points this addition would require
+        $incoming_points = $points_cost * $quantity;
+        $available_points = PR_Points_Manager::get_user_total_points($user_id);
+        $projected_total = $current_points_committed + $incoming_points;
+
+        error_log("Points validation: Available points: $available_points, currently committed: $current_points_committed, incoming: $incoming_points, projected total: $projected_total");
+
+        // Allow the addition - cart validation will adjust quantities if needed
+        error_log("Points validation: Allowing addition, cart will adjust if necessary");
         return $passed;
+    }
+
+    /**
+     * AJAX ADD-TO-CART VALIDATION: Intercept AJAX requests and validate before processing
+     * This catches side cart plugins and custom AJAX implementations
+     */
+    public function validate_ajax_request() {
+        error_log("Points AJAX validation: Intercepting AJAX add-to-cart request");
+        
+        // Extract product info from request
+        $product_id = isset($_REQUEST['product_id']) ? absint($_REQUEST['product_id']) : 0;
+        $variation_id = isset($_REQUEST['variation_id']) ? absint($_REQUEST['variation_id']) : 0;
+        $quantity = isset($_REQUEST['quantity']) ? absint($_REQUEST['quantity']) : 1;
+        if ($quantity < 1 && isset($_REQUEST['qty'])) {
+            $quantity = absint($_REQUEST['qty']);
+        }
+        if ($quantity < 1) {
+            $quantity = 1;
+        }
+        
+        if (!$product_id) {
+            error_log("Points AJAX validation: No product_id in request");
+            return;
+        }
+        
+        error_log("Points AJAX validation: product_id=$product_id, variation_id=$variation_id, quantity=$quantity");
+        
+        // Run the same validation as add_to_cart
+        $validation_result = $this->validate_add_to_cart_points(
+            true, 
+            $product_id, 
+            $quantity, 
+            $variation_id, 
+            array(), 
+            array()
+        );
+        
+        if (!$validation_result) {
+            error_log("Points AJAX validation: Validation FAILED, sending error response");
+            
+            // Get the WooCommerce notices
+            $notices = wc_get_notices('error');
+            $error_message = !empty($notices) ? $notices[0]['notice'] : 'Cannot add this item to cart.';
+            
+            // Clear notices so they don't show twice
+            wc_clear_notices();
+            
+            // Send JSON error response and stop execution
+            wp_send_json_error(array(
+                'error' => true,
+                'product_url' => apply_filters('woocommerce_cart_redirect_after_error', get_permalink($product_id), $product_id),
+                'message' => $error_message
+            ));
+            exit;
+        }
+        
+        error_log("Points AJAX validation: Validation passed, allowing AJAX add-to-cart to continue");
+    }
+
+    /**
+     * POST-AJAX VALIDATION: Check cart after AJAX add-to-cart completes
+     * This is a fallback in case the AJAX validation is bypassed
+     */
+    public function validate_ajax_add_to_cart($product_id) {
+        error_log("Points AJAX post-validation: Checking cart after AJAX add for product $product_id");
+        
+        if (!is_user_logged_in()) {
+            return;
+        }
+        
+        $cart = WC()->cart;
+        if (!$cart || $cart->is_empty()) {
+            return;
+        }
+
+        $user_id = get_current_user_id();
+        $available_points = PR_Points_Manager::get_user_total_points($user_id);
+        $snapshot = $this->get_points_cart_snapshot($cart);
+
+        if (empty($snapshot['items'])) {
+            return;
+        }
+
+        if ($snapshot['total_points'] <= $available_points) {
+            return; // No adjustment needed
+        }
+
+        // Reuse cart validation logic to trim excess while preserving earlier items
+        $this->validate_points_purchase_quantities();
+
+        // After adjustment, if totals still exceed balance, surface an error
+        $snapshot_after = $this->get_points_cart_snapshot($cart);
+        if ($snapshot_after['total_points'] > $available_points) {
+            wc_add_notice(
+                sprintf(
+                    __('You don\'t have enough points. You have %d points but still need %d. Please review your cart.', 'ahmeds-pointsystem'),
+                    $available_points,
+                    $snapshot_after['total_points']
+                ),
+                'error'
+            );
+        }
+    }
+
+    /**
+     * FINAL CHECKOUT VALIDATION: Block checkout if multiple points items or insufficient points
+     * This runs on woocommerce_checkout_process (HIGH PRIORITY = 100)
+     */
+    public function validate_checkout_points() {
+        error_log("Points checkout validation: validate_checkout_points called");
+
+        if (!is_user_logged_in()) {
+            error_log("Points checkout validation: User not logged in, allowing");
+            return;
+        }
+
+        $user_id = get_current_user_id();
+
+        // Check if user is revoked
+        $user_management = new PR_User_Management();
+        if ($user_management->is_user_revoked($user_id)) {
+            return; // Don't validate for revoked users
+        }
+
+        $cart = WC()->cart;
+        if (!$cart || $cart->is_empty()) {
+            return;
+        }
+
+        $available_points = PR_Points_Manager::get_user_total_points($user_id);
+        $snapshot = $this->get_points_cart_snapshot($cart);
+
+        if (empty($snapshot['items'])) {
+            return;
+        }
+
+        $total_points_needed = $snapshot['total_points'];
+        error_log("Points checkout validation: total points required $total_points_needed, available $available_points");
+
+        if ($total_points_needed > $available_points) {
+            wc_add_notice(
+                sprintf(
+                    __('You don\'t have enough points to complete this purchase. You have %d points but need %d. Please remove some items or earn more points.', 'ahmeds-pointsystem'),
+                    $available_points,
+                    $total_points_needed
+                ),
+                'error'
+            );
+        }
     }
 
     /**
@@ -1079,110 +1333,110 @@ class PR_Product_Purchase {
     public function validate_points_purchase_quantities() {
         $cart = WC()->cart;
         if (!$cart || $cart->is_empty()) return;
-        
+
         if (!is_user_logged_in()) return;
-        
+
         $user_id = get_current_user_id();
-        
+
         // Check if user is revoked
         $user_management = new PR_User_Management();
         if ($user_management->is_user_revoked($user_id)) {
             return; // Don't process for revoked users
         }
-        
-        // Get user's available points (properly handles manually set points)
+
         $available_points = PR_Points_Manager::get_user_total_points($user_id);
-        
-        // Calculate total points needed for all points-based items in cart
-        $total_points_needed = 0;
-        $points_items = array();
-        
+        $snapshot = $this->get_points_cart_snapshot($cart);
+
+        if (empty($snapshot['items'])) {
+            return; // No points items present
+        }
+
+        if ($snapshot['total_points'] <= $available_points) {
+            return; // Everything fits within balance
+        }
+
+        error_log("Points cart validation: Adjusting cart because total points {$snapshot['total_points']} exceed available $available_points");
+
+        $cumulative_points = 0;
+        $adjusted = false;
+        $adjustment_messages = array();
+
         foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
-            $product = $cart_item['data'];
-            if (!$product) continue;
-            
-            $product_id = $product->get_id();
-            
-            // Check if this is a points-only product
-            if ($this->is_points_only_product($product)) {
-                $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
-                if ($points_cost > 0) {
-                    $item_points = $points_cost * $cart_item['quantity'];
-                    $total_points_needed += $item_points;
-                    $points_items[$cart_item_key] = array(
-                        'product_id' => $product_id,
-                        'cost_per_unit' => $points_cost,
-                        'quantity' => $cart_item['quantity'],
-                        'total_cost' => $item_points,
-                    );
-                }
+            if (!isset($snapshot['items'][$cart_item_key])) {
+                continue; // Not a points item
             }
-            // Also check regular products that customer chose to pay with points
-            elseif ($this->can_purchase_with_points($product)) {
-                // Check if they specifically chose to use points (this would be stored on cart item)
-                $use_points = $cart_item->get_meta('_pr_use_points');
-                if ($use_points === 'yes') {
-                    $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
-                    if ($points_cost > 0) {
-                        $item_points = $points_cost * $cart_item['quantity'];
-                        $total_points_needed += $item_points;
-                        $points_items[$cart_item_key] = array(
-                            'product_id' => $product_id,
-                            'cost_per_unit' => $points_cost,
-                            'quantity' => $cart_item['quantity'],
-                            'total_cost' => $item_points,
-                        );
-                    }
-                }
+
+            $item = $snapshot['items'][$cart_item_key];
+            $cost_per_unit = $item['cost_per_unit'];
+            $quantity = $item['quantity'];
+            $product_name = isset($cart_item['data']) && is_a($cart_item['data'], 'WC_Product')
+                ? $cart_item['data']->get_name()
+                : __('this item', 'ahmeds-pointsystem');
+
+            if ($cost_per_unit <= 0 || $quantity <= 0) {
+                continue;
+            }
+
+            $remaining_points = $available_points - $cumulative_points;
+
+            if ($remaining_points <= 0) {
+                $cart->remove_cart_item($cart_item_key);
+                $adjusted = true;
+                $adjustment_messages[] = sprintf(
+                    __('Removed %1$s because your points balance was fully used.', 'ahmeds-pointsystem'),
+                    esc_html($product_name)
+                );
+                error_log("Points cart validation: Removed item $cart_item_key due to zero remaining points");
+                continue;
+            }
+
+            $item_total_points = $cost_per_unit * $quantity;
+
+            if ($item_total_points <= $remaining_points) {
+                $cumulative_points += $item_total_points;
+                continue;
+            }
+
+            $max_quantity = intval(floor($remaining_points / $cost_per_unit));
+
+            if ($max_quantity > 0) {
+                $cart->set_quantity($cart_item_key, $max_quantity);
+                $cumulative_points += $cost_per_unit * $max_quantity;
+                $adjusted = true;
+                $adjustment_messages[] = sprintf(
+                    __('Reduced %1$s to quantity %2$d because only %3$d points were left.', 'ahmeds-pointsystem'),
+                    esc_html($product_name),
+                    $max_quantity,
+                    $remaining_points
+                );
+                error_log("Points cart validation: Reduced item $cart_item_key to quantity $max_quantity");
+            } else {
+                $cart->remove_cart_item($cart_item_key);
+                $adjusted = true;
+                $adjustment_messages[] = sprintf(
+                    __('Removed %1$s because it requires %2$d points but only %3$d were left.', 'ahmeds-pointsystem'),
+                    esc_html($product_name),
+                    $cost_per_unit,
+                    $remaining_points
+                );
+                error_log("Points cart validation: Removed item $cart_item_key due to insufficient remaining points");
             }
         }
-        
-        // If customer doesn't have enough points, remove or reduce items
-        if ($total_points_needed > $available_points && !empty($points_items)) {
-            $remaining_points = $available_points;
-            
-            // Iterate through points items and adjust quantities
-            foreach ($points_items as $cart_item_key => $item_info) {
-                $cost_per_unit = $item_info['cost_per_unit'];
-                $current_quantity = $item_info['quantity'];
-                
-                if ($remaining_points <= 0) {
-                    // Remove item entirely
-                    $cart->remove_cart_item($cart_item_key);
-                    WC()->session->set('_pr_quantity_limited', true);
-                } else {
-                    // Calculate max affordable quantity with remaining points
-                    $max_quantity = intval(floor($remaining_points / $cost_per_unit));
-                    
-                    if ($max_quantity < $current_quantity) {
-                        if ($max_quantity > 0) {
-                            // Reduce quantity to what they can afford
-                            $cart->set_quantity($cart_item_key, $max_quantity);
-                            $remaining_points -= ($max_quantity * $cost_per_unit);
-                            WC()->session->set('_pr_quantity_limited', true);
-                        } else {
-                            // Can't afford any at current quantity
-                            $cart->remove_cart_item($cart_item_key);
-                            WC()->session->set('_pr_quantity_limited', true);
-                        }
-                    } else {
-                        // They can afford current quantity
-                        $remaining_points -= ($current_quantity * $cost_per_unit);
-                    }
-                }
+
+        if ($adjusted) {
+            $detail_message = '';
+            if (!empty($adjustment_messages)) {
+                $detail_message = '<br />' . implode('<br />', $adjustment_messages);
             }
-            
-            // Show customer-facing notice if quantities were limited
-            if (WC()->session->get('_pr_quantity_limited')) {
-                wc_add_notice(
-                    sprintf(
-                        __('Your cart quantities have been adjusted because you don\'t have enough points. You have %d available points.', 'ahmeds-pointsystem'),
-                        $available_points
-                    ),
-                    'notice'
-                );
-                WC()->session->set('_pr_quantity_limited', false);
-            }
+
+            wc_add_notice(
+                sprintf(
+                    __('We kept your cart within your %1$d available points.%2$s', 'ahmeds-pointsystem'),
+                    $available_points,
+                    $detail_message
+                ),
+                'error'
+            );
         }
     }
 
