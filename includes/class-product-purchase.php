@@ -611,7 +611,7 @@ class PR_Product_Purchase {
         if ($this->is_points_purchase($product, $cart_item)) {
             $product_id = $product->get_id();
             $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
-            return '<span class="pr-points-product-price">' . esc_html($points_cost) . ' points</span>';
+            return '<span class="pr-points-product-price">' . esc_html($points_cost) . ' ' . __('point', 'ahmeds-pointsystem') . '</span>';
         }
         
         return $price;
@@ -632,7 +632,7 @@ class PR_Product_Purchase {
             $points_cost = PR_Product_Points_Cost::get_product_points_cost($product_id);
             $quantity = isset($cart_item['quantity']) ? intval($cart_item['quantity']) : 1;
             $total_points = $points_cost * max(1, $quantity);
-            return '<span class="pr-points-product-price">' . esc_html($total_points) . ' points</span>';
+            return '<span class="pr-points-product-price">' . esc_html($total_points) . ' ' . __('point', 'ahmeds-pointsystem') . '</span>';
         }
         
         return $subtotal;
@@ -656,7 +656,7 @@ class PR_Product_Purchase {
             $quantity = $item->get_quantity();
             $total_points = $points_cost * $quantity;
             
-            return '<span class="pr-points-product-price">' . $total_points . ' points</span>';
+            return '<span class="pr-points-product-price">' . $total_points . ' ' . __('point', 'ahmeds-pointsystem') . '</span>';
         }
         
         return $subtotal;
@@ -679,7 +679,7 @@ class PR_Product_Purchase {
             
             // Return quantity with points price
             return sprintf(
-                '%s &times; <span class="pr-points-product-price">%s points</span>',
+                '%s &times; <span class="pr-points-product-price">%s ' . __('point', 'ahmeds-pointsystem') . '</span>',
                 $quantity,
                 esc_html($points_cost)
             );
@@ -964,7 +964,7 @@ class PR_Product_Purchase {
             if (wp_verify_nonce($_POST['pr_points_nonce'], 'pr_use_points_nonce')) {
                 $product = wc_get_product($product_id);
                 if (!$product) {
-                    wc_add_notice('Product not found.', 'error');
+                    wc_add_notice(__('Produkt ikke fundet.', 'ahmeds-pointsystem'), 'error');
                     return false;
                 }
                 
@@ -984,7 +984,7 @@ class PR_Product_Purchase {
                         $cart_item_data['pr_points_only'] = 'yes';
                     } else {
                         error_log("Points Purchase Rejected: User has $total_available_points but needs $required_points");
-                        wc_add_notice('Insufficient points to purchase this item.', 'error');
+                        wc_add_notice(__('Utilstrækkelig point til at købe denne vare.', 'ahmeds-pointsystem'), 'error');
                         return false; // Prevent adding to cart
                     }
                 }
@@ -1035,8 +1035,8 @@ class PR_Product_Purchase {
         
         if ($is_points_purchase) {
             $item_data[] = array(
-                'name' => '💰 Payment Method',
-                'value' => '<span style="color: #27ae60; font-weight: 600;">Points</span>'
+                'name' => __('💰 Betalingsmåde', 'ahmeds-pointsystem'),
+                'value' => '<span style="color: #27ae60; font-weight: 600;">' . __('Point', 'ahmeds-pointsystem') . '</span>'
             );
         }
         return $item_data;

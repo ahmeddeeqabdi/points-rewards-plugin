@@ -117,6 +117,28 @@ class PR_Points_Manager {
         }
     }
 
+    public static function get_user_points($user_id) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'user_points';
+        
+        $user_record = $wpdb->get_row($wpdb->prepare(
+            "SELECT points, redeemed_points, is_revoked, points_manually_set FROM $table_name WHERE user_id = %d",
+            $user_id
+        ));
+        
+        if (!$user_record) {
+            // Return a default object if user has no record
+            return (object) array(
+                'points' => 0,
+                'redeemed_points' => 0,
+                'is_revoked' => 0,
+                'points_manually_set' => 0
+            );
+        }
+        
+        return $user_record;
+    }
+
     public static function redeem_points($user_id, $points) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'user_points';

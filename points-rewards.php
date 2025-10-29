@@ -133,6 +133,9 @@ class Points_Rewards_Plugin {
         if (!wp_next_scheduled('pr_daily_maintenance')) {
             wp_schedule_event(time(), 'daily', 'pr_daily_maintenance');
         }
+
+        // Flush rewrite rules to ensure new endpoints are registered
+        flush_rewrite_rules();
     }
 
     /**
