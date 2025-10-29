@@ -394,6 +394,7 @@ class PR_Admin_Settings {
             // Get order totals for these specific users
             // WooCommerce stores customer user ID in _customer_user postmeta
             // Only count orders from March 11, 2025 onwards
+            // Include completed and processing orders (points awarded immediately on checkout)
             $spent_query = $wpdb->prepare("
                 SELECT 
                     pm_customer.meta_value as user_id,
@@ -402,7 +403,7 @@ class PR_Admin_Settings {
                 INNER JOIN {$wpdb->postmeta} pm_customer ON p.ID = pm_customer.post_id AND pm_customer.meta_key = '_customer_user'
                 INNER JOIN {$wpdb->postmeta} pm_total ON p.ID = pm_total.post_id AND pm_total.meta_key = '_order_total'
                 WHERE p.post_type = 'shop_order' 
-                    AND p.post_status = 'wc-completed'
+                    AND (p.post_status = 'wc-completed' OR p.post_status = 'wc-processing')
                     AND p.post_date >= '2025-03-11'
                     AND pm_customer.meta_value IN ($placeholders)
                 GROUP BY pm_customer.meta_value

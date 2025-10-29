@@ -77,12 +77,13 @@ class PR_Frontend_Display {
 
         echo '<script>console.log("Executing total_spent query");</script>';
         // Get total spent - only count from allowed categories if restriction is enabled
+        // Include completed and processing orders (points are awarded immediately on checkout)
         $query = "
             SELECT SUM(CAST(pm_total.meta_value AS DECIMAL(10,2))) as total_spent
             FROM {$wpdb->posts} p
             INNER JOIN {$wpdb->postmeta} pm_customer ON p.ID = pm_customer.post_id AND pm_customer.meta_key = '_customer_user' AND pm_customer.meta_value = %d
             INNER JOIN {$wpdb->postmeta} pm_total ON p.ID = pm_total.post_id AND pm_total.meta_key = '_order_total'
-            WHERE p.post_type = 'shop_order' AND p.post_status = 'wc-completed' AND p.post_date >= '2025-03-11'
+            WHERE p.post_type = 'shop_order' AND (p.post_status = 'wc-completed' OR p.post_status = 'wc-processing') AND p.post_date >= '2025-03-11'
         ";
         
         // If category restriction is enabled, only count from allowed categories
@@ -130,6 +131,8 @@ class PR_Frontend_Display {
             'total_spent' => $total_spent,
             'registration_bonus' => $registration_bonus,
             'purchase_points' => $purchase_points,
+            'points_manually_set' => $points_manually_set,
+            'manually_set_points' => $points_manually_set === 1 ? intval($user_points->points) : 0,
         );
     }
 
@@ -281,15 +284,32 @@ class PR_Frontend_Display {
                         <div class="pr-points-breakdown">
                             <h3>Point Sammenbrud</h3>
                             <ul>
-                                <li>
-                                    <strong>Registrerings Bonus:</strong>
-                                    <span><?php echo esc_html($data['registration_bonus']); ?> point</span>
-                                </li>
-                                <li>
-                                    <strong>Points Fra Køb:</strong>
-                                    <span><?php echo esc_html($data['purchase_points']); ?> point</span>
-                                    <small>(<?php echo wc_price($data['total_spent']); ?> ÷ <?php echo esc_html($conversion_rate); ?>)</small>
-                                </li>
+                                <?php if (isset($data['points_manually_set']) && $data['points_manually_set'] === 1) { ?>
+                                    <li>
+                                        <strong>⚙️ Administrator har manuelt tildelt point:</strong>
+                                        <span style="color: #2271b1; font-weight: 600;"><?php echo esc_html($data['manually_set_points']); ?> point</span>
+                                    </li>
+                                    <li style="opacity: 0.6;">
+                                        <strong>Registrerings Bonus:</strong>
+                                        <span>—</span>
+                                        <small style="display: block; margin-top: 3px; font-style: italic;">(Ikke inkluderet, da point blev manuelt sat)</small>
+                                    </li>
+                                    <li style="opacity: 0.6;">
+                                        <strong>Points Fra Køb:</strong>
+                                        <span>—</span>
+                                        <small style="display: block; margin-top: 3px; font-style: italic;">(Ikke inkluderet, da point blev manuelt sat)</small>
+                                    </li>
+                                <?php } else { ?>
+                                    <li>
+                                        <strong>Registrerings Bonus:</strong>
+                                        <span><?php echo esc_html($data['registration_bonus']); ?> point</span>
+                                    </li>
+                                    <li>
+                                        <strong>Points Fra Køb:</strong>
+                                        <span><?php echo esc_html($data['purchase_points']); ?> point</span>
+                                        <small>(<?php echo wc_price($data['total_spent']); ?> ÷ <?php echo esc_html($conversion_rate); ?>)</small>
+                                    </li>
+                                <?php } ?>
                                 <li>
                                     <strong>Point Brugt:</strong>
                                     <span style="color: #dc3545;">-<?php echo esc_html($data['redeemed_points']); ?> point</span>
@@ -302,8 +322,8 @@ class PR_Frontend_Display {
                         </div>
 
                         <p class="pr-points-note">
-                            💡 Du kan bruge dine points til at købe produkter i vores butik.
-                            <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>">Besøg butikken</a>
+                            💡 Du kan bruge dine points til at købe bestemte produkter i vores butik.
+                            <a href="<?php echo esc_url(home_url('/vare-kategori/gave-produkt/')); ?>">Se produkter</a>
                         </p>
                     </div>
 

@@ -6,8 +6,8 @@ class PR_Points_Manager {
         // Award points on user registration
         add_action('user_register', array($this, 'award_registration_points'));
         
-        // Award points on order completion
-        add_action('woocommerce_order_status_completed', array($this, 'award_purchase_points'));
+        // Award points immediately on checkout (before order fulfillment)
+        add_action('woocommerce_checkout_order_processed', array($this, 'award_purchase_points'));
     }
 
     public function award_registration_points($user_id) {
@@ -25,22 +25,8 @@ class PR_Points_Manager {
         
         if (!$user_id) return;
         
-        // Check if points already awarded
+        // Check if points already awarded (prevents double-awarding)
         if ($order->get_meta('_points_awarded') === 'yes') return;
-        
-        // Additional check: only award if order was just completed (not re-completed)
-        $order_status_changes = $order->get_meta('_points_status_history');
-        if (!$order_status_changes) {
-            $order_status_changes = array();
-        }
-        
-        // Only award if this is the first time it becomes completed
-        if (in_array('completed', $order_status_changes)) {
-            return;
-        }
-        
-        $order_status_changes[] = 'completed';
-        $order->update_meta_data('_points_status_history', $order_status_changes);
         
         $conversion_rate = max(0.01, get_option('pr_conversion_rate', 1));
         $order_total = $order->get_total();

@@ -4,7 +4,7 @@
   background: #f8f9fa;
   min-height: 100vh;
   padding: 40px 20px;
-  font-family: Georgia, serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 .pr-point-log-container {
@@ -404,29 +404,77 @@
 }
 
 .pr-insufficient-points {
-  background: #fff3cd;
-  border: 1px solid #ffeaa7;
-  border-radius: 6px;
-  padding: 15px;
-  margin-top: 20px;
-  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #fff8eb 0%, #fff4d8 100%);
+  border: 1px solid rgba(255, 183, 77, 0.45);
+  border-radius: 14px;
+  padding: 16px 20px 14px 56px;
+  margin: 20px 0 20px 0;
+  box-shadow: 0 8px 20px rgba(255, 170, 43, 0.12);
+  text-align: left;
+}
+
+.pr-insufficient-points::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 220, 140, 0.4) 0%, rgba(255, 202, 103, 0) 70%);
+  pointer-events: none;
+}
+
+.pr-insufficient-points::after {
+  content: "⚠️";
+  position: absolute;
+  left: 18px;
+  top: 16px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.pr-insufficient-points p {
+  position: relative;
+  margin: 0;
+  color: #8c5400;
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 .pr-points-required {
-  color: #856404;
-  font-weight: 600;
-  font-size: 1.1em;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #734200;
+  margin-bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pr-points-required::after {
+  content: "";
+  height: 0;
+  width: 60px;
+  border-bottom: 3px solid rgba(255, 168, 0, 0.55);
+  border-radius: 999px;
+  display: inline-block;
 }
 
 .pr-points-available {
-  color: #856404;
-  margin: 5px 0;
+  font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.65);
+  border-radius: 999px;
+  display: inline-block;
+  padding: 5px 14px;
+  margin: 5px 0 10px;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(255, 183, 77, 0.35);
 }
 
 .pr-earn-more {
-  color: #856404;
-  font-size: 0.9em;
-  font-style: italic;
+  font-size: 0.88rem;
+  color: #8c5400;
+  opacity: 0.85;
+  line-height: 1.4;
 }
 
 /* Checkout Page - Points-Only Products */
