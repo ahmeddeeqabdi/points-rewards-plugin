@@ -29,7 +29,7 @@ class PR_Guest_Recovery {
                 AND pm_total.meta_key = '_order_total'
             WHERE p.post_type = 'shop_order'
                 AND p.post_status = 'wc-completed'
-                AND p.post_date < %s
+                AND p.post_date >= %s
                 AND pm_email.meta_value NOT IN (
                     SELECT user_email FROM {$wpdb->users}
                 )
@@ -56,7 +56,7 @@ class PR_Guest_Recovery {
                 AND pm_total.meta_key = '_order_total'
             WHERE p.post_type = 'shop_order'
                 AND p.post_status = 'wc-completed'
-                AND p.post_date < '2025-03-11'
+                AND p.post_date >= '2025-03-11'
         ", $email));
 
         return floatval($total_spent ?? 0);
@@ -443,7 +443,7 @@ class PR_Guest_Recovery {
         ?>
         <div class="wrap pr-guest-recovery-wrap">
             <h1>Guest Recovery - Convert Guests to Members</h1>
-            <p>These are customers who made purchases as guests before March 11, 2025. Send them invitation emails to sign up and claim their points!</p>
+            <p>These are customers who made purchases as guests since March 11, 2025. Send them invitation emails to sign up and claim their points!</p>
 
             <!-- Test Email Section -->
             <div class="pr-card">

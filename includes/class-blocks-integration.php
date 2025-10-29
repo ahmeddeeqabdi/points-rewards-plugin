@@ -452,17 +452,18 @@ class PR_Blocks_Integration {
 
         if ($has_points_products) {
             $user_points = PR_Points_Manager::get_user_total_points(get_current_user_id());
+            $remaining_after_purchase = max(0, $user_points - $total_points_needed);
 
             error_log('Points & Rewards: Displaying direct checkout notice - Points needed: ' . $total_points_needed . ', User balance: ' . $user_points);
 
             ?>
-            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%;">
+            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%; max-width: 548px;">
                 <div class="pr-points-notice" style="
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: #091747;
                     color: white;
                     padding: 16px 20px;
                     border-radius: 12px;
-                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+                    box-shadow: 0 4px 12px rgba(9, 23, 71, 0.15);
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     position: relative;
                     overflow: hidden;
@@ -488,9 +489,10 @@ class PR_Blocks_Integration {
                             </div>
                             <div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">
                                 <?php printf(
-                                    __('I alt nødvendige point: %d • Din saldo: %d point', 'points-rewards'),
+                                    __('Køb med point — Købet kræver: %d point. Din saldo: %d point. Resterende efter køb: %d point', 'points-rewards'),
                                     $total_points_needed,
-                                    $user_points
+                                    $user_points,
+                                    $remaining_after_purchase
                                 ); ?>
                             </div>
                         </div>
@@ -531,17 +533,18 @@ class PR_Blocks_Integration {
 
         if ($has_points_products) {
             $user_points = PR_Points_Manager::get_user_total_points(get_current_user_id());
+            $remaining_after_purchase = max(0, $user_points - $total_points_needed);
 
             error_log('Points & Rewards: Page notice - Displaying checkout notice - Points needed: ' . $total_points_needed . ', User balance: ' . $user_points);
 
             ?>
-            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%; max-width: 100%; box-sizing: border-box;">
+            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%; max-width: 548px; box-sizing: border-box;">
                 <div class="pr-points-notice" style="
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: #091747;
                     color: white;
                     padding: 16px 20px;
                     border-radius: 12px;
-                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+                    box-shadow: 0 4px 12px rgba(9, 23, 71, 0.15);
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     position: relative;
                     overflow: hidden;
@@ -568,9 +571,10 @@ class PR_Blocks_Integration {
                             </div>
                             <div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">
                                 <?php printf(
-                                    __('I alt nødvendige point: %d • Din saldo: %d point', 'points-rewards'),
+                                    __('Køb med point — Købet kræver: %d point. Din saldo: %d point. Resterende efter køb: %d point', 'points-rewards'),
                                     $total_points_needed,
-                                    $user_points
+                                    $user_points,
+                                    $remaining_after_purchase
                                 ); ?>
                             </div>
                         </div>
@@ -616,13 +620,15 @@ class PR_Blocks_Integration {
             // Debug log
             error_log('Points & Rewards: Modifying checkout block content - Points needed: ' . $total_points_needed . ', User balance: ' . $user_points);
 
-            $notice_html = '<div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%;">';
-            $notice_html .= '<div class="pr-points-notice" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15); border: 1px solid rgba(255, 255, 255, 0.1); position: relative; overflow: hidden;">';
+            $remaining_after_purchase = max(0, $user_points - $total_points_needed);
+
+            $notice_html = '<div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%; max-width: 548px;">';
+            $notice_html .= '<div class="pr-points-notice" style="background: #091747; color: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(9, 23, 71, 0.15); border: 1px solid rgba(255, 255, 255, 0.1); position: relative; overflow: hidden;">';
             $notice_html .= '<div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(255,255,255,0.05) 0%, transparent 50%); opacity: 0.5;"></div>';
             $notice_html .= '<div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 12px;">';
             $notice_html .= '<div style="flex-shrink: 0;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="white"/></svg></div>';
             $notice_html .= '<div style="flex: 1;"><div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; opacity: 0.9;">' . __('Pointindkøb', 'points-rewards') . '</div>';
-            $notice_html .= '<div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">' . sprintf(__('I alt nødvendige point: %d • Din saldo: %d point', 'points-rewards'), $total_points_needed, $user_points) . '</div></div></div></div></div>';
+            $notice_html .= '<div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">' . sprintf(__('Køb med point — Købet kræver: %d point. Din saldo: %d point. Resterende efter køb: %d point', 'points-rewards'), $total_points_needed, $user_points, $remaining_after_purchase) . '</div></div></div></div></div>';
 
             // Insert the notice after the opening div of the checkout block, but before the first inner block
             // This should place it at the top of the checkout form without breaking layout
@@ -674,14 +680,16 @@ class PR_Blocks_Integration {
 
             error_log('Points & Rewards: Kadence - Displaying checkout notice - Points needed: ' . $total_points_needed . ', User balance: ' . $user_points);
 
+            $remaining_after_purchase = max(0, $user_points - $total_points_needed);
+
             ?>
-            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%;">
+            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%; max-width: 548px;">
                 <div class="pr-points-notice" style="
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: #091747;
                     color: white;
                     padding: 16px 20px;
                     border-radius: 12px;
-                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+                    box-shadow: 0 4px 12px rgba(9, 23, 71, 0.15);
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     position: relative;
                     overflow: hidden;
@@ -707,9 +715,10 @@ class PR_Blocks_Integration {
                             </div>
                             <div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">
                                 <?php printf(
-                                    __('I alt nødvendige point: %d • Din saldo: %d point', 'points-rewards'),
+                                    __('Køb med point — Købet kræver: %d point. Din saldo: %d point. Resterende efter køb: %d point', 'points-rewards'),
                                     $total_points_needed,
-                                    $user_points
+                                    $user_points,
+                                    $remaining_after_purchase
                                 ); ?>
                             </div>
                         </div>
