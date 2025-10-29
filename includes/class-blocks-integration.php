@@ -457,7 +457,7 @@ class PR_Blocks_Integration {
             error_log('Points & Rewards: Displaying direct checkout notice - Points needed: ' . $total_points_needed . ', User balance: ' . $user_points);
 
             ?>
-            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%; max-width: 548px;">
+            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%;">
                 <div class="pr-points-notice" style="
                     background: #091747;
                     color: white;
@@ -538,7 +538,7 @@ class PR_Blocks_Integration {
             error_log('Points & Rewards: Page notice - Displaying checkout notice - Points needed: ' . $total_points_needed . ', User balance: ' . $user_points);
 
             ?>
-            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%; max-width: 548px; box-sizing: border-box;">
+            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%; max-width: 100%; box-sizing: border-box;">
                 <div class="pr-points-notice" style="
                     background: #091747;
                     color: white;
@@ -622,7 +622,7 @@ class PR_Blocks_Integration {
 
             $remaining_after_purchase = max(0, $user_points - $total_points_needed);
 
-            $notice_html = '<div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%; max-width: 548px;">';
+            $notice_html = '<div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%;">';
             $notice_html .= '<div class="pr-points-notice" style="background: #091747; color: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(9, 23, 71, 0.15); border: 1px solid rgba(255, 255, 255, 0.1); position: relative; overflow: hidden;">';
             $notice_html .= '<div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(255,255,255,0.05) 0%, transparent 50%); opacity: 0.5;"></div>';
             $notice_html .= '<div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 12px;">';
@@ -683,7 +683,7 @@ class PR_Blocks_Integration {
             $remaining_after_purchase = max(0, $user_points - $total_points_needed);
 
             ?>
-            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%; max-width: 548px;">
+            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%;">
                 <div class="pr-points-notice" style="
                     background: #091747;
                     color: white;
