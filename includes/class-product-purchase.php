@@ -272,11 +272,18 @@ class PR_Product_Purchase {
             .woocommerce div.product form.cart {
                 display: flex !important;
                 align-items: flex-end !important;
-                gap: 20px !important;
-                flex-wrap: wrap !important;
+                gap: 12px !important;
+                flex-wrap: nowrap !important;
             }
             
             .woocommerce div.product form.cart .quantity {
+                margin: 0 !important;
+                flex-shrink: 0 !important;
+            }
+            
+            .woocommerce div.product form.cart .single_add_to_cart_button[name="pr_purchase_with_points"] {
+                flex-shrink: 0 !important;
+                white-space: nowrap !important;
                 margin: 0 !important;
             }
         </style>

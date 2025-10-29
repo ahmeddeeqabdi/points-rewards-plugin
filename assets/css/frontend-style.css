@@ -403,6 +403,30 @@
   margin-left: 20px !important;
 }
 
+/* Ensure quantity and points button sit inline for simple and variable products */
+.woocommerce div.product form.cart,
+.woocommerce div.product form.cart .variations_button,
+.woocommerce div.product .single_variation_wrap,
+.woocommerce div.product .variations_button .quantity {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex-wrap: nowrap !important;
+}
+
+.woocommerce div.product form.cart .quantity {
+  order: 1 !important;
+  margin: 0 !important;
+}
+
+.woocommerce div.product form.cart .single_add_to_cart_button[name="pr_purchase_with_points"],
+.woocommerce div.product .variations_button .single_add_to_cart_button[name="pr_purchase_with_points"] {
+  order: 2 !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
 .pr-insufficient-points {
   position: relative;
   overflow: hidden;

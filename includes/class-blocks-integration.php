@@ -457,7 +457,7 @@ class PR_Blocks_Integration {
             error_log('Points & Rewards: Displaying direct checkout notice - Points needed: ' . $total_points_needed . ', User balance: ' . $user_points);
 
             ?>
-            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%;">
+            <div class="pr-points-notice-wrapper" style="margin: 0 0 24px 0; width: 100%;">
                 <div class="pr-points-notice" style="
                     background: #091747;
                     color: white;
@@ -467,6 +467,8 @@ class PR_Blocks_Integration {
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     position: relative;
                     overflow: hidden;
+                    max-width: 500px;
+                    margin: 0;
                 ">
                     <div style="
                         position: absolute;
@@ -477,23 +479,18 @@ class PR_Blocks_Integration {
                         background: radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(255,255,255,0.05) 0%, transparent 50%);
                         opacity: 0.5;
                     "></div>
-                    <div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 12px;">
-                        <div style="flex-shrink: 0;">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="white"/>
-                            </svg>
-                        </div>
+                    <div style="position: relative; z-index: 1; display: flex; align-items: flex-start; gap: 0;">
                         <div style="flex: 1;">
-                            <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; opacity: 0.9;">
+                            <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px; opacity: 0.95; display: flex; align-items: center; gap: 6px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="white"/>
+                                </svg>
                                 <?php _e('Points Purchase', 'points-rewards'); ?>
                             </div>
-                            <div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">
-                                <?php printf(
-                                    __('Køb med point — Købet kræver: %d point. Din saldo: %d point. Resterende efter køb: %d point', 'points-rewards'),
-                                    $total_points_needed,
-                                    $user_points,
-                                    $remaining_after_purchase
-                                ); ?>
+                            <div style="font-size: 13px; line-height: 1.6; opacity: 0.95;">
+                                <div style="margin-bottom: 4px;"><strong><?php printf(__('Købet kræver: %d point', 'points-rewards'), $total_points_needed); ?></strong></div>
+                                <div style="margin-bottom: 4px;">Din saldo: <strong><?php echo esc_html($user_points); ?></strong> point</div>
+                                <div style="margin-bottom: 0;">Resterende: <strong><?php echo esc_html($remaining_after_purchase); ?></strong> point</div>
                             </div>
                         </div>
                     </div>
@@ -538,7 +535,7 @@ class PR_Blocks_Integration {
             error_log('Points & Rewards: Page notice - Displaying checkout notice - Points needed: ' . $total_points_needed . ', User balance: ' . $user_points);
 
             ?>
-            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%; max-width: 100%; box-sizing: border-box;">
+            <div class="pr-points-notice-wrapper" style="margin: 0 0 24px 0; width: 100%; box-sizing: border-box;">
                 <div class="pr-points-notice" style="
                     background: #091747;
                     color: white;
@@ -548,7 +545,8 @@ class PR_Blocks_Integration {
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     position: relative;
                     overflow: hidden;
-                    margin: 0 auto;
+                    max-width: 500px;
+                    margin: 0;
                 ">
                     <div style="
                         position: absolute;
@@ -559,23 +557,18 @@ class PR_Blocks_Integration {
                         background: radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(255,255,255,0.05) 0%, transparent 50%);
                         opacity: 0.5;
                     "></div>
-                    <div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 12px;">
-                        <div style="flex-shrink: 0;">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="white"/>
-                            </svg>
-                        </div>
+                    <div style="position: relative; z-index: 1; display: flex; align-items: flex-start; gap: 0;">
                         <div style="flex: 1;">
-                            <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; opacity: 0.9;">
+                            <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px; opacity: 0.95; display: flex; align-items: center; gap: 6px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="white"/>
+                                </svg>
                                 <?php _e('Points Purchase', 'points-rewards'); ?>
                             </div>
-                            <div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">
-                                <?php printf(
-                                    __('Køb med point — Købet kræver: %d point. Din saldo: %d point. Resterende efter køb: %d point', 'points-rewards'),
-                                    $total_points_needed,
-                                    $user_points,
-                                    $remaining_after_purchase
-                                ); ?>
+                            <div style="font-size: 13px; line-height: 1.6; opacity: 0.95;">
+                                <div style="margin-bottom: 4px;"><strong><?php printf(__('Købet kræver: %d point', 'points-rewards'), $total_points_needed); ?></strong></div>
+                                <div style="margin-bottom: 4px;">Din saldo: <strong><?php echo esc_html($user_points); ?></strong> point</div>
+                                <div style="margin-bottom: 0;">Resterende: <strong><?php echo esc_html($remaining_after_purchase); ?></strong> point</div>
                             </div>
                         </div>
                     </div>
@@ -622,13 +615,16 @@ class PR_Blocks_Integration {
 
             $remaining_after_purchase = max(0, $user_points - $total_points_needed);
 
-            $notice_html = '<div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%;">';
-            $notice_html .= '<div class="pr-points-notice" style="background: #091747; color: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(9, 23, 71, 0.15); border: 1px solid rgba(255, 255, 255, 0.1); position: relative; overflow: hidden;">';
+            $notice_html = '<div class="pr-points-notice-wrapper" style="margin: 0 0 24px 0; width: 100%;">';
+            $notice_html .= '<div class="pr-points-notice" style="background: #091747; color: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(9, 23, 71, 0.15); border: 1px solid rgba(255, 255, 255, 0.1); position: relative; overflow: hidden; max-width: 500px; margin: 0;">';
             $notice_html .= '<div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(255,255,255,0.05) 0%, transparent 50%); opacity: 0.5;"></div>';
-            $notice_html .= '<div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 12px;">';
-            $notice_html .= '<div style="flex-shrink: 0;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="white"/></svg></div>';
-            $notice_html .= '<div style="flex: 1;"><div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; opacity: 0.9;">' . __('Pointindkøb', 'points-rewards') . '</div>';
-            $notice_html .= '<div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">' . sprintf(__('Køb med point — Købet kræver: %d point. Din saldo: %d point. Resterende efter køb: %d point', 'points-rewards'), $total_points_needed, $user_points, $remaining_after_purchase) . '</div></div></div></div></div>';
+            $notice_html .= '<div style="position: relative; z-index: 1; display: flex; align-items: flex-start; gap: 0;">';
+            $notice_html .= '<div style="flex: 1;"><div style="font-weight: 700; font-size: 16px; margin-bottom: 6px; opacity: 0.95; display: flex; align-items: center; gap: 6px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="white"/></svg>' . __('Pointindkøb', 'points-rewards') . '</div>';
+            $notice_html .= '<div style="font-size: 13px; line-height: 1.6; opacity: 0.95;">';
+            $notice_html .= '<div style="margin-bottom: 4px;"><strong>' . sprintf(__('Købet kræver: %d point', 'points-rewards'), $total_points_needed) . '</strong></div>';
+            $notice_html .= '<div style="margin-bottom: 4px;">Din saldo: <strong>' . esc_html($user_points) . '</strong> point</div>';
+            $notice_html .= '<div style="margin-bottom: 0;">Resterende: <strong>' . esc_html($remaining_after_purchase) . '</strong> point</div>';
+            $notice_html .= '</div></div></div></div></div>';
 
             // Insert the notice after the opening div of the checkout block, but before the first inner block
             // This should place it at the top of the checkout form without breaking layout
@@ -683,7 +679,7 @@ class PR_Blocks_Integration {
             $remaining_after_purchase = max(0, $user_points - $total_points_needed);
 
             ?>
-            <div class="pr-points-notice-wrapper" style="margin-bottom: 24px; width: 100%;">
+            <div class="pr-points-notice-wrapper" style="margin: 0 0 24px 0; width: 100%;">
                 <div class="pr-points-notice" style="
                     background: #091747;
                     color: white;
@@ -693,6 +689,8 @@ class PR_Blocks_Integration {
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     position: relative;
                     overflow: hidden;
+                    max-width: 500px;
+                    margin: 0 auto;
                 ">
                     <div style="
                         position: absolute;
@@ -703,23 +701,18 @@ class PR_Blocks_Integration {
                         background: radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(255,255,255,0.05) 0%, transparent 50%);
                         opacity: 0.5;
                     "></div>
-                    <div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 12px;">
-                        <div style="flex-shrink: 0;">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="white"/>
-                            </svg>
-                        </div>
+                    <div style="position: relative; z-index: 1; display: flex; align-items: flex-start; gap: 0;">
                         <div style="flex: 1;">
-                            <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; opacity: 0.9;">
+                            <div style="font-weight: 600; font-size: 14px; margin-bottom: 6px; opacity: 0.9; display: flex; align-items: center; gap: 6px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="white"/>
+                                </svg>
                                 <?php _e('Points Purchase', 'points-rewards'); ?>
                             </div>
-                            <div style="font-size: 13px; line-height: 1.4; opacity: 0.95;">
-                                <?php printf(
-                                    __('Køb med point — Købet kræver: %d point. Din saldo: %d point. Resterende efter køb: %d point', 'points-rewards'),
-                                    $total_points_needed,
-                                    $user_points,
-                                    $remaining_after_purchase
-                                ); ?>
+                            <div style="font-size: 13px; line-height: 1.6; opacity: 0.95;">
+                                <div style="margin-bottom: 4px;"><strong><?php printf(__('Købet kræver: %d point', 'points-rewards'), $total_points_needed); ?></strong></div>
+                                <div style="margin-bottom: 4px;">Din saldo: <strong><?php echo esc_html($user_points); ?></strong> point</div>
+                                <div style="margin-bottom: 0;">Resterende: <strong><?php echo esc_html($remaining_after_purchase); ?></strong> point</div>
                             </div>
                         </div>
                     </div>
