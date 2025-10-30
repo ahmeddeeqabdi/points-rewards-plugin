@@ -388,10 +388,25 @@
 }
 
 .pr-points-info {
-  color: #666;
-  font-size: 0.9em;
-  margin: 0 !important;
-  flex-grow: 1;
+  display: inline-block;
+  background: none;
+  color: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 8px 0 !important;
+  padding: 0;
+  border-radius: 0;
+  white-space: nowrap; /* force one line */
+}
+
+/* Reset previous margin-left used when next to button */
+.woocommerce div.product form.cart .pr-points-info {
+  margin-left: 0 !important;
+}
+
+/* When placed after size guide wrapper, add a little gap */
+.sgp-size-guide-wrapper + .pr-points-info {
+  margin-left: 12px !important;
 }
 
 /* Align button with quantity selector in product form */
@@ -412,6 +427,11 @@
   align-items: center !important;
   gap: 12px !important;
   flex-wrap: nowrap !important;
+}
+
+/* Remove left margin from variations button container */
+.woocommerce-variation-add-to-cart.variations_button {
+  margin-left: 0 !important;
 }
 
 .woocommerce div.product form.cart .quantity {

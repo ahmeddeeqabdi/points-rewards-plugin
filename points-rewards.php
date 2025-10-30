@@ -178,6 +178,17 @@ class Points_Rewards_Plugin {
             '1.0.0'
         );
 
+        // Enqueue small frontend script on product pages to position points info next to size guide
+        if (function_exists('is_product') && is_product()) {
+            wp_enqueue_script(
+                'pr-frontend-script',
+                PR_PLUGIN_URL . 'assets/js/frontend-script.js',
+                array(),
+                '1.0.0',
+                true
+            );
+        }
+
         // Only enqueue checkout block scripts on checkout/cart pages
         if (!is_checkout() && !is_cart()) {
             return;

@@ -160,7 +160,7 @@ class PR_Frontend_Display {
         }
 
         // Add the new item
-        $items['point-log'] = __('Pointlog', 'ahmeds-pointsystem');
+        $items['point-log'] = __('Punktbuch', 'ahmeds-pointsystem');
 
         // Optional: Reorder to place it correctly.
         // This is a common pattern to add an item before logout.
@@ -253,113 +253,113 @@ class PR_Frontend_Display {
                 } else {
                     ?>
                     <div class="pr-points-dashboard">
-                        <h2>⭐ Dine Pointsystem Stats</h2>
+                        <h2>⭐ Deine Punktsystem-Statistiken</h2>
 
                         <div class="pr-points-grid">
                             <div class="pr-points-card">
-                                <div class="pr-card-header">Tilgængelige Points</div>
+                                <div class="pr-card-header">Verfügbare Punkte</div>
                                 <div class="pr-card-value"><?php echo esc_html($data['available_points']); ?></div>
-                                <div class="pr-card-label">Point Du Kan Bruge</div>
+                                <div class="pr-card-label">Punkte zum Ausgeben</div>
                             </div>
 
                             <div class="pr-points-card">
-                                <div class="pr-card-header">Samlede Points</div>
+                                <div class="pr-card-header">Gesamtpunkte</div>
                                 <div class="pr-card-value"><?php echo esc_html($data['total_points']); ?></div>
-                                <div class="pr-card-label">Fortjent I Alt</div>
+                                <div class="pr-card-label">Insgesamt verdient</div>
                             </div>
 
                             <div class="pr-points-card">
-                                <div class="pr-card-header">Brugte Points</div>
+                                <div class="pr-card-header">Verwendete Punkte</div>
                                 <div class="pr-card-value"><?php echo esc_html($data['redeemed_points']); ?></div>
-                                <div class="pr-card-label">Point Brugt Til Køb</div>
+                                <div class="pr-card-label">Für Käufe verwendet</div>
                             </div>
 
                             <div class="pr-points-card">
-                                <div class="pr-card-header">Samlet Forbrug</div>
+                                <div class="pr-card-header">Gesamtausgaben</div>
                                 <div class="pr-card-value"><?php echo wc_price($data['total_spent']); ?></div>
-                                <div class="pr-card-label">Brugt I Butikken</div>
+                                <div class="pr-card-label">Im Store ausgegeben</div>
                             </div>
                         </div>
 
                         <div class="pr-points-breakdown">
-                            <h3>Point Sammenbrud</h3>
+                            <h3>Punktaufschlüsselung</h3>
                             <ul>
                                 <?php if (isset($data['points_manually_set']) && $data['points_manually_set'] === 1) { ?>
                                     <li>
-                                        <strong>⚙️ Administrator har manuelt tildelt point:</strong>
-                                        <span style="color: #2271b1; font-weight: 600;"><?php echo esc_html($data['manually_set_points']); ?> point</span>
+                                        <strong>⚙️ Admin hat Punkte manuell vergeben:</strong>
+                                        <span style="color: #2271b1; font-weight: 600;"><?php echo esc_html($data['manually_set_points']); ?> Punkte</span>
                                     </li>
                                     <li style="opacity: 0.6;">
-                                        <strong>Registrerings Bonus:</strong>
+                                        <strong>Registrierungsbonus:</strong>
                                         <span>—</span>
-                                        <small style="display: block; margin-top: 3px; font-style: italic;">(Ikke inkluderet, da point blev manuelt sat)</small>
+                                        <small style="display: block; margin-top: 3px; font-style: italic;">(Nicht enthalten, da Punkte manuell festgelegt wurden)</small>
                                     </li>
                                     <li style="opacity: 0.6;">
-                                        <strong>Points Fra Køb:</strong>
+                                        <strong>Punkte aus Käufen:</strong>
                                         <span>—</span>
-                                        <small style="display: block; margin-top: 3px; font-style: italic;">(Ikke inkluderet, da point blev manuelt sat)</small>
+                                        <small style="display: block; margin-top: 3px; font-style: italic;">(Nicht enthalten, da Punkte manuell festgelegt wurden)</small>
                                     </li>
                                 <?php } else { ?>
                                     <li>
-                                        <strong>Registrerings Bonus:</strong>
-                                        <span><?php echo esc_html($data['registration_bonus']); ?> point</span>
+                                        <strong>Registrierungsbonus:</strong>
+                                        <span><?php echo esc_html($data['registration_bonus']); ?> Punkte</span>
                                     </li>
                                     <li>
-                                        <strong>Points Fra Køb:</strong>
-                                        <span><?php echo esc_html($data['purchase_points']); ?> point</span>
+                                        <strong>Punkte aus Käufen:</strong>
+                                        <span><?php echo esc_html($data['purchase_points']); ?> Punkte</span>
                                         <small>(<?php echo wc_price($data['total_spent']); ?> ÷ <?php echo esc_html($conversion_rate); ?>)</small>
                                     </li>
                                 <?php } ?>
                                 <li>
-                                    <strong>Point Brugt:</strong>
-                                    <span style="color: #dc3545;">-<?php echo esc_html($data['redeemed_points']); ?> point</span>
+                                    <strong>Verwendete Punkte:</strong>
+                                    <span style="color: #dc3545;">-<?php echo esc_html($data['redeemed_points']); ?> Punkte</span>
                                 </li>
                                 <li style="border-top: 2px solid #2271b1; padding-top: 10px; margin-top: 10px;">
-                                    <strong>Tilgængelige Points:</strong>
-                                    <span style="color: #2271b1; font-size: 1.2em;"><strong><?php echo esc_html($data['available_points']); ?> point</strong></span>
+                                    <strong>Verfügbare Punkte:</strong>
+                                    <span style="color: #2271b1; font-size: 1.2em;"><strong><?php echo esc_html($data['available_points']); ?> Punkte</strong></span>
                                 </li>
                             </ul>
                         </div>
 
                         <p class="pr-points-note">
-                            💡 Du kan bruge dine points til at købe bestemte produkter i vores butik.
-                            <a href="<?php echo esc_url(home_url('/vare-kategori/gave-produkt/')); ?>">Se produkter</a>
+                            💡 Du kannst deine Punkte zum Kauf bestimmter Produkte in unserem Shop verwenden.
+                            <a href="<?php echo esc_url(home_url('/shop-gift-products/')); ?>">Produkte anschauen</a>
                         </p>
                     </div>
 
                     <div class="pr-points-history">
-                        <h2>📊 Point Historie</h2>
+                        <h2>📊 Punkthistorie</h2>
 
                         <div class="pr-history-info">
-                            <p>Her kan du se dine point transaktioner og hvordan dine points er blevet akkumuleret over tid.</p>
+                            <p>Hier kannst du deine Punkt-Transaktionen und wie sich deine Punkte im Laufe der Zeit angesammelt haben, sehen.</p>
                         </div>
 
-                        <h3>Hvordan Du Tjener Points:</h3>
+                        <h3>Wie du Punkte verdienst:</h3>
                         <ul class="pr-history-list">
                             <li>
-                                <strong>✅ Registrerings Bonus:</strong>
-                                Automatisk givet når du opretter en konto
+                                <strong>✅ Registrierungsbonus:</strong>
+                                Automatisch vergeben, wenn du ein Konto erstellst
                             </li>
                             <li>
-                                <strong>💰 Fra Køb:</strong>
-                                Du tjener points hver gang du handler. Mængden afhænger af dit køb beløb.
+                                <strong>💰 Aus Käufen:</strong>
+                                Du verdienst jedes Mal Punkte, wenn du einkaufst. Die Menge hängt von deinem Kaufbetrag ab.
                             </li>
                         </ul>
 
-                        <h3>Hvordan Du Bruger Points:</h3>
+                        <h3>Wie du Punkte verwendest:</h3>
                         <ul class="pr-history-list">
                             <li>
-                                <strong>🛒 Produktkøb:</strong>
-                                Under checkout kan du vælge at betale med points i stedet for penge
+                                <strong>🛒 Produktkauf:</strong>
+                                Du kannst beim Checkout wählen, mit Punkten statt mit Geld zu bezahlen
                             </li>
                             <li>
-                                <strong>💳 Point Værdi:</strong>
-                                Se dit kontrol panel ovenfor for at se hvor mange points du kan bruge
+                                <strong>💳 Punktwert:</strong>
+                                Siehe dein Dashboard oben, um zu sehen, wie viele Punkte du ausgeben kannst
                             </li>
                         </ul>
 
                         <p class="pr-points-contact">
-                            📧 Har du spørgsmål? <a href="<?php echo esc_url(get_permalink(wc_get_page_id('shop'))); ?>">Kontakt os</a>
+                            📧 Fragen? <a href="<?php echo esc_url(get_permalink(wc_get_page_id('shop'))); ?>">Kontaktiere uns</a>
                         </p>
                     </div>
                     <?php
