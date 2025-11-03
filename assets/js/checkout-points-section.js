@@ -64,7 +64,7 @@ const CheckoutPointsSection = ({ cart, extensions }) => {
                             marginBottom: '4px',
                             opacity: 0.9
                         }}>
-                            Points Purchase
+                            Zahlung mit Punkten
                         </div>
                         <div style={{
                             fontSize: '13px',

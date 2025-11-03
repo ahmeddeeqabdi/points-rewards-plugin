@@ -358,7 +358,7 @@ class PR_Product_Points_Cost {
         
         $points_cost = self::get_product_points_cost($product->get_id());
         // Add points cost to the price display text
-        $data['price_html'] = '<span class="pr-points-price">' . $points_cost . ' points</span>';
+    $data['price_html'] = '<span class="pr-points-price">' . $points_cost . ' ' . __('Punkte', 'ahmeds-pointsystem') . '</span>';
         
         $response->set_data($data);
         return $response;
