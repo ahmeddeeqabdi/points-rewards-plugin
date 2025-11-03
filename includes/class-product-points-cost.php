@@ -78,7 +78,8 @@ class PR_Product_Points_Cost {
         wp_nonce_field('pr_product_points_cost_nonce', 'pr_product_points_cost_nonce');
         
         $conversion_rate = max(0.01, floatval(get_option('pr_conversion_rate', 1)));
-        $default_cost = ceil($product->get_price() / $conversion_rate);
+        $product_price = floatval($product->get_price());
+        $default_cost = $product_price > 0 ? ceil($product_price / $conversion_rate) : 0;
         
         ?>
         <div style="background: #f9f9f9; padding: 15px; border-radius: 5px;">
