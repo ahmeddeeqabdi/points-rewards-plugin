@@ -185,7 +185,7 @@ class PR_Admin_Settings {
                     <table class="form-table">
                         <tr>
                             <th scope="row">
-                                <label for="pr_conversion_rate">Points Per Kroner</label>
+                                <label for="pr_conversion_rate">Points per Euro</label>
                             </th>
                             <td>
                                 <input type="number" 
@@ -197,7 +197,7 @@ class PR_Admin_Settings {
                                        class="regular-text" 
                                        placeholder="1.00" />
                                 <p class="description">
-                                    Set the conversion rate. For example: 1 = 1 point per Kr., 2 = 1 point per 2 Kr.</p>
+                                    Set the conversion rate. For example: 1 = 1 point per €1, 2 = 1 point per €2.</p>
                                 </p>
                             </td>
                         </tr>
