@@ -213,7 +213,7 @@ class PR_Product_Purchase {
                         name="pr_purchase_with_points" 
                         value="yes" 
                         class="single_add_to_cart_button button alt">
-                    <?php printf(__('Køb med %d point', 'ahmeds-pointsystem'), $required_points); ?>
+                    <?php printf(__('Betal med %d point', 'ahmeds-pointsystem'), $required_points); ?>
                 </button>
                 <p class="pr-points-info" style="margin-top: 8px; white-space: nowrap;"><?php printf(__('Du har %d point', 'ahmeds-pointsystem'), $total_available_points); ?></p>
                 <?php
@@ -222,7 +222,7 @@ class PR_Product_Purchase {
                 <div class="pr-insufficient-points">
                     <p class="pr-points-required"><?php printf(__('Kræver %d point', 'ahmeds-pointsystem'), $required_points); ?></p>
                     <p class="pr-points-available"><?php printf(__('Du har: %d point', 'ahmeds-pointsystem'), $total_available_points); ?></p>
-                    <p class="pr-earn-more"><?php _e('Tjener flere point ved at foretage køb for at låse denne vare op.', 'ahmeds-pointsystem'); ?></p>
+                    <p class="pr-earn-more"><?php _e('Tjen flere point gennem køb for at låse denne vare op.', 'ahmeds-pointsystem'); ?></p>
                 </div>
                 <?php
             }
@@ -1001,7 +1001,7 @@ class PR_Product_Purchase {
             $product = wc_get_product($product_id);
             if ($product && $this->is_points_only_product($product)) {
                 // User tried to add a points-only product without the points purchase button
-            wc_add_notice(__('Dette produkt kan kun købes med point. Brug venligst knappen "Køb med point".', 'ahmeds-pointsystem'), 'error');
+            wc_add_notice(__('Dette produkt kan kun købes med point. Benyt venligst knappen "Betal med point".', 'ahmeds-pointsystem'), 'error');
                 return false; // Prevent adding to cart
             }
         }
@@ -1325,7 +1325,7 @@ class PR_Product_Purchase {
         if ($total_points_needed > $available_points) {
             wc_add_notice(
                 sprintf(
-                    __('Du har ikke nok point til at gennemføre dette køb. Du har %d point, men skal bruge %d. Fjern venligst nogle varer eller tjener flere point.', 'ahmeds-pointsystem'),
+                    __('Du har ikke nok point til at gennemføre dette køb. Du har %d point, men skal bruge %d. Fjern venligst nogle varer', 'ahmeds-pointsystem'),
                     $available_points,
                     $total_points_needed
                 ),
