@@ -248,15 +248,13 @@ class PR_Product_Purchase {
             if ($total_available_points >= $required_points) {
                 wp_nonce_field('pr_use_points_nonce', 'pr_points_nonce');
                 ?>
-                <div class="pr-purchase-button-wrapper">
-                    <button type="submit" 
-                            name="pr_purchase_with_points" 
-                            value="yes" 
-                            class="single_add_to_cart_button button alt">
-                        <?php printf(__('Betal med %d point', 'ahmeds-pointsystem'), $required_points); ?>
-                    </button>
-                    <p class="pr-points-info" style="margin-top: 8px; white-space: nowrap;"><?php printf(__('Du har %d point', 'ahmeds-pointsystem'), $total_available_points); ?></p>
-                </div>
+                <button type="submit" 
+                        name="pr_purchase_with_points" 
+                        value="yes" 
+                        class="single_add_to_cart_button button alt">
+                    <?php printf(__('Betal med %d point', 'ahmeds-pointsystem'), $required_points); ?>
+                </button>
+                <p class="pr-points-info" style="margin-top: 8px; white-space: nowrap;"><?php printf(__('Du har %d point', 'ahmeds-pointsystem'), $total_available_points); ?></p>
                 <?php
             } else {
                 ?>
