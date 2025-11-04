@@ -438,6 +438,41 @@ body.pr-can-purchase-with-points .woocommerce div.product .variations_button .pr
   flex-shrink: 0 !important;
 }
 
+/* EXTRA SPECIFICITY: Variable products container alignment */
+body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart.variations_button {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex-wrap: nowrap !important;
+}
+
+/* Ensure order inside the variation add-to-cart row */
+body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .quantity {
+  order: 1 !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart button.single_add_to_cart_button[name="pr_purchase_with_points"] {
+  order: 2 !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .pr-points-info {
+  order: 3 !important;
+  margin: 0 0 0 12px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+/* Keep the default money button last if present */
+body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart button.single_add_to_cart_button:not([name="pr_purchase_with_points"]) {
+  order: 4 !important;
+}
+
 .pr-insufficient-points {
   position: relative;
   overflow: hidden;

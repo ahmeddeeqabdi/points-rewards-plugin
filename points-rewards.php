@@ -181,6 +181,19 @@ class Points_Rewards_Plugin {
             $css_version
         );
 
+        // Product page: enqueue tiny layout helper to ensure correct order if CSS is overridden
+        if (function_exists('is_product') && is_product()) {
+            $layout_js_path = PR_PLUGIN_PATH . 'assets/js/product-layout.js';
+            $layout_js_ver  = file_exists($layout_js_path) ? filemtime($layout_js_path) : '1.0.0';
+            wp_enqueue_script(
+                'pr-product-layout',
+                PR_PLUGIN_URL . 'assets/js/product-layout.js',
+                array(),
+                $layout_js_ver,
+                true
+            );
+        }
+
         // Only enqueue checkout block scripts on checkout/cart pages
         if (!is_checkout() && !is_cart()) {
             return;
