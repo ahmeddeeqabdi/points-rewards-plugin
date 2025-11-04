@@ -407,14 +407,16 @@
 body.pr-can-purchase-with-points .woocommerce div.product form.cart,
 body.pr-can-purchase-with-points .woocommerce div.product form.cart .variations_button,
 body.pr-can-purchase-with-points .woocommerce div.product .single_variation_wrap,
-body.pr-can-purchase-with-points .woocommerce div.product .variations_button .quantity {
+body.pr-can-purchase-with-points .woocommerce div.product .variations_button {
   display: flex !important;
+  flex-direction: row !important;
   align-items: center !important;
   gap: 12px !important;
   flex-wrap: nowrap !important;
 }
 
-body.pr-can-purchase-with-points .woocommerce div.product form.cart .quantity {
+body.pr-can-purchase-with-points .woocommerce div.product form.cart .quantity,
+body.pr-can-purchase-with-points .woocommerce div.product .variations_button .quantity {
   order: 1 !important;
   margin: 0 !important;
 }
@@ -425,6 +427,13 @@ body.pr-can-purchase-with-points .woocommerce div.product form.cart .quantity {
   margin: 0 !important;
   flex-shrink: 0 !important;
   white-space: nowrap !important;
+}
+
+/* Place the "Du har x point" text after the button on eligible products */
+body.pr-can-purchase-with-points .woocommerce div.product form.cart .pr-points-info,
+body.pr-can-purchase-with-points .woocommerce div.product .variations_button .pr-points-info {
+  order: 3 !important;
+  margin-left: 12px !important;
 }
 
 .pr-insufficient-points {
