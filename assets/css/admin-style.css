@@ -246,7 +246,9 @@
 
 /* Users table styling */
 .pr-users-wrap {
-  max-width: 1200px;
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .pr-users-wrap h1 {
@@ -256,8 +258,16 @@
   font-weight: 600;
 }
 
+.pr-users-wrap .pr-card {
+  max-width: none;
+  width: 100%;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+}
+
 .pr-users-wrap table {
-  margin-top: 20px;
+  margin-top: 0;
   width: 100%;
   border-collapse: collapse;
 }
