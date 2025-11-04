@@ -439,62 +439,46 @@ body.pr-can-purchase-with-points .woocommerce div.product .variations_button .pr
 }
 
 /* EXTRA SPECIFICITY: Variable products container alignment */
+/* Use CSS Grid so the points text can sit above the points button without moving DOM */
 body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart.variations_button {
-  display: flex !important;
-  flex-direction: row !important;
+  display: grid !important;
+  grid-template-columns: auto auto;   /* quantity | points column */
+  grid-template-rows: auto auto;      /* text row | controls row */
+  column-gap: 12px !important;
+  row-gap: 6px !important;
   align-items: center !important;
-  gap: 12px !important;
-  flex-wrap: nowrap !important;
 }
 
 /* Ensure order inside the variation add-to-cart row */
 body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .quantity {
-  order: 1 !important;
+  grid-column: 1 !important;
+  grid-row: 2 !important;
   margin: 0 !important;
-  flex-shrink: 0 !important;
 }
 
 body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart button.single_add_to_cart_button[name="pr_purchase_with_points"] {
-  order: 2 !important;
+  grid-column: 2 !important;
+  grid-row: 2 !important;
   margin: 0 !important;
   white-space: nowrap !important;
-  flex-shrink: 0 !important;
 }
 
 body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .pr-points-info {
-  order: 3 !important;
-  margin: 0 0 0 12px !important;
+  grid-column: 2 !important;
+  grid-row: 1 !important;   /* place text above the points button */
+  margin: 0 !important;
   white-space: nowrap !important;
-  flex-shrink: 0 !important;
+  color: #111 !important;    /* make it black */
+  font-size: 1rem !important;/* slightly bigger */
 }
 
 /* Keep the default money button last if present */
 body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart button.single_add_to_cart_button:not([name="pr_purchase_with_points"]) {
-  order: 4 !important;
+  grid-column: 3 !important; /* push it after our points column if present */
+  grid-row: 2 !important;
 }
 
-/* Group the points info above the points button (stack vertically) */
-body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .pr-button-group {
-  order: 2 !important;                /* Appears after quantity */
-  display: flex !important;
-  flex-direction: column !important;  /* Stack text above button */
-  align-items: flex-start !important;
-  gap: 6px !important;
-  margin-left: 0 !important;
-}
-
-/* Inside the group, show the text first, then the button */
-body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .pr-button-group .pr-points-info {
-  order: 1 !important;
-  margin: 0 !important;
-  color: #111 !important;             /* Make it black */
-  font-size: 1rem !important;         /* Slightly bigger */
-}
-
-body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .pr-button-group button.single_add_to_cart_button[name="pr_purchase_with_points"] {
-  order: 2 !important;
-  margin: 0 !important;
-}
+/* No extra wrapper needed when using grid; previous .pr-button-group rules retained only for safety */
 
 .pr-insufficient-points {
   position: relative;
