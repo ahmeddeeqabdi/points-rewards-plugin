@@ -88,19 +88,25 @@ class PR_Admin_Settings {
 
     public function enqueue_assets($hook) {
         if (strpos($hook, 'ahmeds-pointsystem') === false) return;
+
+        // Version assets with file modification time to bust caches in admin
+        $css_path = PR_PLUGIN_PATH . 'assets/css/admin-style.css';
+        $js_path  = PR_PLUGIN_PATH . 'assets/js/admin-script.js';
+        $css_ver  = file_exists($css_path) ? filemtime($css_path) : '1.0.0';
+        $js_ver   = file_exists($js_path) ? filemtime($js_path) : '1.0.0';
         
         wp_enqueue_style(
             'pr-admin-style',
             PR_PLUGIN_URL . 'assets/css/admin-style.css',
             array(),
-            '1.0.0'
+            $css_ver
         );
         
         wp_enqueue_script(
             'pr-admin-script',
             PR_PLUGIN_URL . 'assets/js/admin-script.js',
             array('jquery'),
-            '1.0.0',
+            $js_ver,
             true
         );
     }

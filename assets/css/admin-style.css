@@ -251,6 +251,15 @@
   box-sizing: border-box;
 }
 
+/* Force full-width layout for the Users Points screen, overriding WP admin defaults */
+.wrap.pr-users-wrap,
+#wpcontent .wrap.pr-users-wrap,
+#wpcontent .pr-users-wrap {
+  max-width: none;
+  width: 100%;
+  padding-right: 20px;
+}
+
 .pr-users-wrap h1 {
   color: #1d2327;
   margin-bottom: 30px;
@@ -261,15 +270,18 @@
 .pr-users-wrap .pr-card {
   max-width: none;
   width: 100%;
+  margin: 0;
   padding: 0;
   border: none;
   box-shadow: none;
+  background: transparent;
 }
 
 .pr-users-wrap table {
   margin-top: 0;
   width: 100%;
   border-collapse: collapse;
+  table-layout: auto;
 }
 
 .pr-users-wrap table thead {
