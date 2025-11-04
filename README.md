@@ -629,7 +629,8 @@ The plugin creates the following custom table:
 
 For support, feature requests, or bug reports:
 
-- **Author:** Ahmed
+- **Author:** Ahmed-Deeq Abdi
+- **Contact Mail:** 1ahmed.deeq@gmail.com 
 - **Plugin URI:** https://example.com/ahmeds-pointsystem
 - **Documentation:** This README file
 - **Version:** 1.0.0
@@ -673,7 +674,7 @@ GNU General Public License for more details.
 
 ## 🙏 Credits
 
-Developed by Ahmed.
+Developed by Ahmed-Deeq Abdi
 
 ---
 
