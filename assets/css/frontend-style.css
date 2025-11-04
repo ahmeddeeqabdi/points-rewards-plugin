@@ -419,10 +419,11 @@ body.pr-can-purchase-with-points .woocommerce div.product form.cart .quantity,
 body.pr-can-purchase-with-points .woocommerce div.product .variations_button .quantity {
   order: 1 !important;
   margin: 0 !important;
+  flex-shrink: 0 !important;
 }
 
-.woocommerce div.product form.cart .single_add_to_cart_button[name="pr_purchase_with_points"],
-.woocommerce div.product .variations_button .single_add_to_cart_button[name="pr_purchase_with_points"] {
+body.pr-can-purchase-with-points .woocommerce div.product form.cart .single_add_to_cart_button[name="pr_purchase_with_points"],
+body.pr-can-purchase-with-points .woocommerce div.product .variations_button .single_add_to_cart_button[name="pr_purchase_with_points"] {
   order: 2 !important;
   margin: 0 !important;
   flex-shrink: 0 !important;
@@ -434,6 +435,7 @@ body.pr-can-purchase-with-points .woocommerce div.product form.cart .pr-points-i
 body.pr-can-purchase-with-points .woocommerce div.product .variations_button .pr-points-info {
   order: 3 !important;
   margin-left: 12px !important;
+  flex-shrink: 0 !important;
 }
 
 .pr-insufficient-points {
