@@ -404,6 +404,7 @@
 }
 
 /* Ensure quantity and points button sit inline for simple and variable products */
+/* COMMENTED OUT - See below
 .woocommerce div.product form.cart,
 .woocommerce div.product form.cart .variations_button,
 .woocommerce div.product .single_variation_wrap,
@@ -413,6 +414,7 @@
   gap: 12px !important;
   flex-wrap: nowrap !important;
 }
+*/
 
 .woocommerce div.product form.cart .quantity {
   order: 1 !important;
