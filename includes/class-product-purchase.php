@@ -115,9 +115,8 @@ class PR_Product_Purchase {
             return;
         }
         
-        // Check if this is a points-only product
-        $is_points_only = get_option('pr_points_only_categories', 'no') === 'yes';
-        if (!$is_points_only) {
+        // Only enqueue when the current product is truly points-only
+        if (!$this->is_points_only_product($product)) {
             return;
         }
         
