@@ -404,6 +404,7 @@
 }
 
 /* Ensure quantity and points button sit inline ONLY when points purchase is available */
+/* NOTE: These flex rules do NOT apply to .woocommerce-variation-add-to-cart (which uses grid instead) */
 body.pr-can-purchase-with-points .woocommerce div.product form.cart,
 body.pr-can-purchase-with-points .woocommerce div.product form.cart .variations_button,
 body.pr-can-purchase-with-points .woocommerce div.product .single_variation_wrap,
@@ -413,6 +414,11 @@ body.pr-can-purchase-with-points .woocommerce div.product .variations_button {
   align-items: center !important;
   gap: 12px !important;
   flex-wrap: nowrap !important;
+}
+
+/* GRID OVERRIDE: .woocommerce-variation-add-to-cart uses CSS Grid instead of flex */
+body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart.variations_button {
+  display: grid !important;
 }
 
 body.pr-can-purchase-with-points .woocommerce div.product form.cart .quantity,
