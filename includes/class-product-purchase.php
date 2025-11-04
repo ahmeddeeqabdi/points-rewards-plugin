@@ -232,6 +232,10 @@ class PR_Product_Purchase {
             
             // Get the custom point cost (or calculated default)
             $required_points = PR_Product_Points_Cost::get_product_points_cost($product_id);
+            // If there is no explicit points cost, do not render the option
+            if ($required_points <= 0) {
+                return;
+            }
             
             // Get total available points (respecting manually set points flag)
             $total_available_points = PR_Points_Manager::get_user_total_points($user_id);

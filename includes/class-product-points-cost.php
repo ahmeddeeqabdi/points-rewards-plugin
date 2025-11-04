@@ -224,6 +224,10 @@ class PR_Product_Points_Cost {
 
         $product_id = $product->get_id();
         $points_cost = self::get_product_points_cost($product_id);
+        // Only output when this product actually has a positive points cost
+        if ($points_cost <= 0) {
+            return;
+        }
         $user_id = get_current_user_id();
         
         // Get total available points (properly handles manually set points)
