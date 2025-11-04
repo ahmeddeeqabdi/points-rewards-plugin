@@ -473,6 +473,29 @@ body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart button.singl
   order: 4 !important;
 }
 
+/* Group the points info above the points button (stack vertically) */
+body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .pr-button-group {
+  order: 2 !important;                /* Appears after quantity */
+  display: flex !important;
+  flex-direction: column !important;  /* Stack text above button */
+  align-items: flex-start !important;
+  gap: 6px !important;
+  margin-left: 0 !important;
+}
+
+/* Inside the group, show the text first, then the button */
+body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .pr-button-group .pr-points-info {
+  order: 1 !important;
+  margin: 0 !important;
+  color: #111 !important;             /* Make it black */
+  font-size: 1rem !important;         /* Slightly bigger */
+}
+
+body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .pr-button-group button.single_add_to_cart_button[name="pr_purchase_with_points"] {
+  order: 2 !important;
+  margin: 0 !important;
+}
+
 .pr-insufficient-points {
   position: relative;
   overflow: hidden;
