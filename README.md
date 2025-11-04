@@ -4,24 +4,31 @@ A comprehensive WordPress plugin that adds a points and rewards system to WooCom
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Features Guide](#features-guide)
+- [Overview](#-overview)
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Features Guide](#-features-guide)
   - [Points Earning System](#points-earning-system)
   - [Points Spending System](#points-spending-system)
   - [Guest Recovery](#guest-recovery)
   - [Product Points Management](#product-points-management)
   - [User Management](#user-management)
-- [Frontend Features](#frontend-features)
-- [Admin Features](#admin-features)
-- [WooCommerce Blocks Support](#woocommerce-blocks-support)
-- [Shortcodes](#shortcodes)
-- [Developer Hooks](#developer-hooks)
-- [Troubleshooting](#troubleshooting)
-- [Changelog](#changelog)
+- [Frontend Features](#-frontend-features)
+- [Admin Features](#-admin-features)
+- [WooCommerce Blocks Support](#-woocommerce-blocks-support)
+- [Shortcodes](#-shortcodes)
+- [Developer Hooks](#-developer-hooks)
+- [Troubleshooting](#-troubleshooting)
+- [Changelog](#-changelog)
+- [Security Features](#-security-features)
+- [Localization](#-localization)
+- [Database Schema](#-database-schema)
+- [Performance Considerations](#-performance-considerations)
+- [Support](#-support)
+- [License](#-license)
+- [Credits](#-credits)
 
 ## 🎯 Overview
 
@@ -630,7 +637,7 @@ The plugin creates the following custom table:
 For support, feature requests, or bug reports:
 
 - **Author:** Ahmed-Deeq Abdi
-- **Contact Mail:** 1ahmed.deeq@gmail.com 
+- **Contact Mail:** 1ahmed.deeq@gmail.com
 - **Plugin URI:** https://example.com/ahmeds-pointsystem
 - **Documentation:** This README file
 - **Version:** 1.0.0
