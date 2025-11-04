@@ -416,6 +416,7 @@
 }
 */
 
+/* COMMENTED OUT - Breaks non-points products
 .woocommerce div.product form.cart .quantity {
   order: 1 !important;
   margin: 0 !important;
@@ -428,6 +429,7 @@
   flex-shrink: 0 !important;
   white-space: nowrap !important;
 }
+*/
 
 .pr-insufficient-points {
   position: relative;
