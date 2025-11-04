@@ -171,11 +171,14 @@ class Points_Rewards_Plugin {
     }
 
     public function enqueue_frontend_styles() {
+        $css_path = PR_PLUGIN_PATH . 'assets/css/frontend-style.css';
+        $css_version = file_exists($css_path) ? filemtime($css_path) : '1.0.0';
+
         wp_enqueue_style(
             'pr-frontend-style',
             PR_PLUGIN_URL . 'assets/css/frontend-style.css',
             array(),
-            '1.0.0'
+            $css_version
         );
 
         // Only enqueue checkout block scripts on checkout/cart pages
@@ -183,12 +186,18 @@ class Points_Rewards_Plugin {
             return;
         }
 
+        $checkout_component_path = PR_PLUGIN_PATH . 'assets/js/checkout-points-section.js';
+        $checkout_component_version = file_exists($checkout_component_path) ? filemtime($checkout_component_path) : '1.0.0';
+
+        $register_section_path = PR_PLUGIN_PATH . 'assets/js/register-checkout-section.js';
+        $register_section_version = file_exists($register_section_path) ? filemtime($register_section_path) : '1.0.0';
+
         // Register scripts for WooCommerce Blocks
         wp_register_script(
             'pr-checkout-points-component',
             PR_PLUGIN_URL . 'assets/js/checkout-points-section.js',
             array('wp-element'),
-            '1.0.0',
+            $checkout_component_version,
             true
         );
 
@@ -200,7 +209,7 @@ class Points_Rewards_Plugin {
                 'wc-blocks-checkout',
                 'pr-checkout-points-component'
             ),
-            '1.0.0',
+            $register_section_version,
             true
         );
 
