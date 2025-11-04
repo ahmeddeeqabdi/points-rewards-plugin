@@ -442,18 +442,19 @@ body.pr-can-purchase-with-points .woocommerce div.product .variations_button .pr
 /* Use CSS Grid so the points text can sit above the points button without moving DOM */
 body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart.variations_button {
   display: grid !important;
-  grid-template-columns: auto auto;   /* quantity | points column */
-  grid-template-rows: auto auto;      /* text row | controls row */
+  grid-template-columns: auto auto auto;   /* quantity | points-info | rest */
+  grid-template-rows: auto auto;           /* text row | controls row */
   column-gap: 12px !important;
   row-gap: 6px !important;
-  align-items: center !important;
+  align-items: start !important;
 }
 
 /* Ensure order inside the variation add-to-cart row */
 body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .quantity {
   grid-column: 1 !important;
-  grid-row: 2 !important;
+  grid-row: 1 / 3 !important;  /* span both rows to align center with button */
   margin: 0 !important;
+  align-self: center !important;
 }
 
 body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart button.single_add_to_cart_button[name="pr_purchase_with_points"] {
@@ -475,7 +476,7 @@ body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .pr-points-i
 /* Keep the default money button last if present */
 body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart button.single_add_to_cart_button:not([name="pr_purchase_with_points"]) {
   grid-column: 3 !important; /* push it after our points column if present */
-  grid-row: 2 !important;
+  grid-row: 1 / 3 !important; /* span both rows */
 }
 
 /* No extra wrapper needed when using grid; previous .pr-button-group rules retained only for safety */
