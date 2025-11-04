@@ -564,3 +564,37 @@ body.pr-can-purchase-with-points .woocommerce div.product .variations_button .pr
   color: #27ae60;
   font-weight: 600;
 }
+
+/* Single Product Page - Points Purchase Button Alignment */
+body.pr-can-purchase-with-points form.cart {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 15px;
+}
+
+body.pr-can-purchase-with-points form.cart .quantity {
+    order: 1;
+    margin-bottom: 0; /* Reset margin */
+}
+
+body.pr-can-purchase-with-points form.cart .pr-purchase-button-wrapper {
+    order: 2;
+    display: flex;
+    flex-direction: column; /* Stack button and text vertically */
+    align-items: flex-start;
+}
+
+body.pr-can-purchase-with-points form.cart .pr-purchase-button-wrapper .single_add_to_cart_button {
+    margin-bottom: 5px; /* Space between button and text */
+}
+
+body.pr-can-purchase-with-points form.cart .pr-purchase-button-wrapper .pr-points-info {
+    margin-top: 0;
+    white-space: normal; /* Allow text to wrap if needed */
+}
+
+/* Ensure the default add to cart button is hidden if it exists */
+body.pr-can-purchase-with-points form.cart button[name="add-to-cart"] {
+    order: 3;
+}
