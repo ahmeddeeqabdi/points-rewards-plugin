@@ -921,8 +921,14 @@ class PR_Admin_Settings {
     }
 
     public function sanitize_registration_points($value) {
+        // If empty string submitted, keep the current value (don't reset to 0)
+        if ($value === '' || $value === null) {
+            $current = get_option('pr_registration_points', 10);
+            return intval($current);
+        }
+        
         $value = intval($value);
-        return max(0, $value); // Cannot be negative
+        return max(0, $value); // Cannot be negative, minimum 0
     }
 
     public function sanitize_allowed_categories($value) {
