@@ -467,11 +467,16 @@ body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart button.singl
   grid-column: 2 !important;
   grid-row: 2 !important;
   margin: 0 !important;
+  padding: 0 !important;
   white-space: nowrap !important;
   width: 127px !important;
   height: 40px !important;
-  padding: 0 !important;
   font-size: 0.9rem !important;
+  border: none !important;
+  line-height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 body.pr-can-purchase-with-points .woocommerce-variation-add-to-cart .pr-points-info {
