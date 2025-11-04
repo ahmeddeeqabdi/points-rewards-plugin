@@ -100,6 +100,9 @@ class PR_Product_Purchase {
         
         // Scripts
         add_action('wp_enqueue_scripts', array($this, 'enqueue_variation_price_script'));
+
+        // Add a body class on product pages when the product can be purchased with points
+        add_filter('body_class', array($this, 'add_points_body_class'));
     }
 
     /**
@@ -151,6 +154,42 @@ class PR_Product_Purchase {
             });
         });
         ');
+    }
+
+    /**
+     * Add contextual body class when viewing a product that can be purchased with points.
+     * This lets us scope frontend CSS so non-eligible products are unaffected.
+     */
+    public function add_points_body_class($classes) {
+        if (!is_product()) {
+            return $classes;
+        }
+
+        $enable_purchase = get_option('pr_enable_purchase', 'no');
+        if ($enable_purchase !== 'yes') {
+            return $classes;
+        }
+
+        global $product;
+        if (!$product || !is_a($product, 'WC_Product')) {
+            return $classes;
+        }
+
+        // If product is points-only, clearly eligible
+        if ($this->is_points_only_product($product)) {
+            $classes[] = 'pr-can-purchase-with-points';
+            return $classes;
+        }
+
+        // Otherwise, product must be in allowed categories and have a positive points cost
+        if ($this->can_purchase_with_points($product)) {
+            $cost = PR_Product_Points_Cost::get_product_points_cost($product->get_id());
+            if ($cost > 0) {
+                $classes[] = 'pr-can-purchase-with-points';
+            }
+        }
+
+        return $classes;
     }
 
     /**
