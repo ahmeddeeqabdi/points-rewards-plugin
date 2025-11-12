@@ -31,6 +31,7 @@ require_once PR_PLUGIN_PATH . 'includes/class-frontend-display.php';
 require_once PR_PLUGIN_PATH . 'includes/class-guest-recovery.php';
 require_once PR_PLUGIN_PATH . 'includes/class-user-management.php';
 require_once PR_PLUGIN_PATH . 'includes/class-blocks-integration.php';
+ 
 
 // Initialize plugin
 class Points_Rewards_Plugin {
